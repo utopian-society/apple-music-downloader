@@ -96,7 +96,7 @@ func fileExists(path string) (bool, error) {
 }
 
 func checkUrl(url string) (string, string) {
-	pat := regexp.MustCompile(`^(?:https:\/\/(?:beta\.music|music|classical\.music)\.apple\.com\/(\w{2})(?:\/album|\/album\/.+))\/(?:id)?(\d[^\D]+)(?:$|\?)`)
+	pat := regexp.MustCompile(`^(?:https://(?:beta\.music|music|classical\.music)\.apple\.com/(\w{2})(?:/album|/album/.+))/(?:id)?(\d[^\D]+)(?:$|\?)`)
 	matches := pat.FindAllStringSubmatch(url, -1)
 
 	if matches == nil {
@@ -106,7 +106,7 @@ func checkUrl(url string) (string, string) {
 	}
 }
 func checkUrlMv(url string) (string, string) {
-	pat := regexp.MustCompile(`^(?:https:\/\/(?:beta\.music|music)\.apple\.com\/(\w{2})(?:\/music-video|\/music-video\/.+))\/(?:id)?(\d[^\D]+)(?:$|\?)`)
+	pat := regexp.MustCompile(`^(?:https://(?:beta\.music|music)\.apple\.com/(\w{2})(?:/music-video|/music-video/.+))/(?:id)?(\d[^\D]+)(?:$|\?)`)
 	matches := pat.FindAllStringSubmatch(url, -1)
 
 	if matches == nil {
@@ -116,7 +116,7 @@ func checkUrlMv(url string) (string, string) {
 	}
 }
 func checkUrlSong(url string) (string, string) {
-	pat := regexp.MustCompile(`^(?:https:\/\/(?:beta\.music|music|classical\.music)\.apple\.com\/(\w{2})(?:\/song|\/song\/.+))\/(?:id)?(\d[^\D]+)(?:$|\?)`)
+	pat := regexp.MustCompile(`^(?:https://(?:beta\.music|music|classical\.music)\.apple\.com/(\w{2})(?:/song|/song/.+))/(?:id)?(\d[^\D]+)(?:$|\?)`)
 	matches := pat.FindAllStringSubmatch(url, -1)
 
 	if matches == nil {
@@ -126,7 +126,7 @@ func checkUrlSong(url string) (string, string) {
 	}
 }
 func checkUrlPlaylist(url string) (string, string) {
-	pat := regexp.MustCompile(`^(?:https:\/\/(?:beta\.music|music|classical\.music)\.apple\.com\/(\w{2})(?:\/playlist|\/playlist\/.+))\/(?:id)?(pl\.[\w-]+)(?:$|\?)`)
+	pat := regexp.MustCompile(`^(?:https://(?:beta\.music|music|classical\.music)\.apple\.com/(\w{2})(?:/playlist|/playlist/.+))/(?:id)?(pl\.[\w-]+)(?:$|\?)`)
 	matches := pat.FindAllStringSubmatch(url, -1)
 
 	if matches == nil {
@@ -137,7 +137,7 @@ func checkUrlPlaylist(url string) (string, string) {
 }
 
 func checkUrlStation(url string) (string, string) {
-	pat := regexp.MustCompile(`^(?:https:\/\/(?:beta\.music|music)\.apple\.com\/(\w{2})(?:\/station|\/station\/.+))\/(?:id)?(ra\.[\w-]+)(?:$|\?)`)
+	pat := regexp.MustCompile(`^(?:https://(?:beta\.music|music)\.apple\.com/(\w{2})(?:/station|/station/.+))/(?:id)?(ra\.[\w-]+)(?:$|\?)`)
 	matches := pat.FindAllStringSubmatch(url, -1)
 
 	if matches == nil {
@@ -148,7 +148,7 @@ func checkUrlStation(url string) (string, string) {
 }
 
 func checkUrlArtist(url string) (string, string) {
-	pat := regexp.MustCompile(`^(?:https:\/\/(?:beta\.music|music|classical\.music)\.apple\.com\/(\w{2})(?:\/artist|\/artist\/.+))\/(?:id)?(\d[^\D]+)(?:$|\?)`)
+	pat := regexp.MustCompile(`^(?:https://(?:beta\.music|music|classical\.music)\.apple\.com/(\w{2})(?:/artist|/artist/.+))/(?:id)?(\d[^\D]+)(?:$|\?)`)
 	matches := pat.FindAllStringSubmatch(url, -1)
 
 	if matches == nil {
@@ -345,7 +345,7 @@ func writeCover(sanAlbumFolder, name string, url string) (string, error) {
 		_ = os.Remove(covPath)
 	}
 	if Config.CoverFormat == "png" {
-		re := regexp.MustCompile(`\{w\}x\{h\}`)
+		re := regexp.MustCompile(`{w}x{h}`)
 		parts := re.Split(url, 2)
 		url = parts[0] + "{w}x{h}" + strings.Replace(parts[1], ".jpg", ".png", 1)
 	}
@@ -1336,7 +1336,7 @@ func ripAlbum(albumId string, token string, storefront string, mediaUserToken st
 	os.MkdirAll(albumFolderPath, os.ModePerm)
 	album.SaveName = albumFolderName
 	fmt.Println(albumFolderName)
-	if Config.SaveArtistCover && len(meta.Data[0].Relationships.Artists.Data) > 0{
+	if Config.SaveArtistCover && len(meta.Data[0].Relationships.Artists.Data) > 0 {
 		if meta.Data[0].Relationships.Artists.Data[0].Attributes.Artwork.Url != "" {
 			_, err = writeCover(singerFolder, "folder", meta.Data[0].Relationships.Artists.Data[0].Attributes.Artwork.Url)
 			if err != nil {
@@ -1707,6 +1707,15 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		AlbumSort:    track.Resp.Attributes.AlbumName,
 	}
 
+	// Add EditorialNotes as comment if available
+	if track.AlbumData.Attributes.EditorialNotes.Standard != "" {
+		reHTML := regexp.MustCompile("<[^>]*>")
+		textWithoutHTML := reHTML.ReplaceAllString(track.AlbumData.Attributes.EditorialNotes.Standard, "")
+		reNewlines := regexp.MustCompile(`\n{2,}`)
+		cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
+		t.Comment = strings.TrimSpace(cleanComment)
+	}
+
 	if track.PreType == "albums" {
 		albumID, err := strconv.ParseUint(track.PreID, 10, 32)
 		if err != nil {
@@ -1732,6 +1741,14 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.AlbumSort = track.PlaylistData.Attributes.Name
 		t.AlbumArtist = track.PlaylistData.Attributes.ArtistName
 		t.AlbumArtistSort = track.PlaylistData.Attributes.ArtistName
+		// Add playlist editorial notes
+		if track.PlaylistData.Attributes.EditorialNotes.Standard != "" && t.Comment == "" {
+			reHTML := regexp.MustCompile("<[^>]*>")
+			textWithoutHTML := reHTML.ReplaceAllString(track.PlaylistData.Attributes.EditorialNotes.Standard, "")
+			reNewlines := regexp.MustCompile(`\n{2,}`)
+			cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
+			t.Comment = strings.TrimSpace(cleanComment)
+		}
 	} else if (track.PreType == "playlists" || track.PreType == "stations") && Config.UseSongInfoForPlaylist {
 		t.DiscTotal = int16(track.DiscTotal)
 		t.TrackTotal = int16(track.AlbumData.Attributes.TrackCount)
@@ -1742,6 +1759,14 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.Date = track.AlbumData.Attributes.ReleaseDate
 		t.Copyright = track.AlbumData.Attributes.Copyright
 		t.Publisher = track.AlbumData.Attributes.RecordLabel
+		// Add album editorial notes for playlists using song info
+		if track.AlbumData.Attributes.EditorialNotes.Standard != "" && t.Comment == "" {
+			reHTML := regexp.MustCompile("<[^>]*>")
+			textWithoutHTML := reHTML.ReplaceAllString(track.AlbumData.Attributes.EditorialNotes.Standard, "")
+			reNewlines := regexp.MustCompile(`\n{2,}`)
+			cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
+			t.Comment = strings.TrimSpace(cleanComment)
+		}
 	} else {
 		t.DiscTotal = int16(track.DiscTotal)
 		t.TrackTotal = int16(track.AlbumData.Attributes.TrackCount)
@@ -1751,6 +1776,14 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.Date = track.AlbumData.Attributes.ReleaseDate
 		t.Copyright = track.AlbumData.Attributes.Copyright
 		t.Publisher = track.AlbumData.Attributes.RecordLabel
+		// Add album editorial notes for regular albums
+		if track.AlbumData.Attributes.EditorialNotes.Standard != "" && t.Comment == "" {
+			reHTML := regexp.MustCompile("<[^>]*>")
+			textWithoutHTML := reHTML.ReplaceAllString(track.AlbumData.Attributes.EditorialNotes.Standard, "")
+			reNewlines := regexp.MustCompile(`\n{2,}`)
+			cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
+			t.Comment = strings.TrimSpace(cleanComment)
+		}
 	}
 
 	if track.Resp.Attributes.ContentRating == "explicit" {

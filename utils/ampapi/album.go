@@ -32,7 +32,7 @@ func GetAlbumResp(storefront string, id string, language string, token string) (
 	//query.Set("fields[artists]", "name,artwork")
 	//query.Set("fields[albums:albums]", "artistName,artwork,name,releaseDate,url")
 	//query.Set("fields[record-labels]", "name")
-	query.Set("extend", "editorialVideo,extendedAssetUrls")
+	query.Set("extend", "editorialVideo,extendedAssetUrls,editorialNotes")
 	query.Set("l", language)
 	req.URL.RawQuery = query.Encode()
 	do, err := http.DefaultClient.Do(req)
@@ -109,7 +109,7 @@ func GetAlbumRespByHref(href string, language string, token string) (*AlbumResp,
 	//query.Set("fields[artists]", "name,artwork")
 	//query.Set("fields[albums:albums]", "artistName,artwork,name,releaseDate,url")
 	//query.Set("fields[record-labels]", "name")
-	query.Set("extend", "editorialVideo,extendedAssetUrls")
+	query.Set("extend", "editorialVideo,extendedAssetUrls,editorialNotes")
 	query.Set("l", language)
 	req.URL.RawQuery = query.Encode()
 	do, err := http.DefaultClient.Do(req)
@@ -204,6 +204,10 @@ type AlbumRespData struct {
 			Kind string `json:"kind"`
 		} `json:"playParams"`
 		IsCompilation  bool `json:"isCompilation"`
+		EditorialNotes struct {
+			Standard string `json:"standard"`
+			Short    string `json:"short"`
+		} `json:"editorialNotes"`
 		EditorialVideo struct {
 			MotionTall struct {
 				Video string `json:"video"`
