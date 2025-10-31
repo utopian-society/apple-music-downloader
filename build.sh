@@ -42,10 +42,10 @@ echo ""
 
 # 获取版本信息
 echo -e "${YELLOW}📝 收集版本信息...${NC}"
-GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "unknown")
+GIT_TAG=$(git describe --tags 2>/dev/null || git tag --sort=-v:refname | head -n 1 2>/dev/null || echo "v0.0.0")
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME=$(date '+%Y-%m-%d %H:%M:%S %Z')
-GO_VERSION=$(go version | awk '{print $3}')
+GO_VERSION=$(go version | awk '{print $3}' || echo "unknown")
 
 echo -e "   版本标签:   ${GREEN}${GIT_TAG}${NC}"
 echo -e "   提交哈希:   ${GREEN}${GIT_COMMIT}${NC}"
@@ -65,8 +65,19 @@ LDFLAGS="${LDFLAGS} -X 'main.Version=${GIT_TAG}'"
 LDFLAGS="${LDFLAGS} -X 'main.CommitHash=${GIT_COMMIT}'"
 LDFLAGS="${LDFLAGS} -X 'main.BuildTime=${BUILD_TIME}'"
 
+# 检查是否安装了 upx
+if command -v upx >/dev/null 2>&1; then
+    echo -e "${YELLOW}📦 使用 UPX 压缩二进制文件...${NC}"
+    COMPRESS_FLAG="-buildmode=pie"
+else
+    COMPRESS_FLAG=""
+fi
+
 # 执行构建
-if go build -ldflags="${LDFLAGS}" -o "${BUILD_OUTPUT}" .; then
+if go build ${COMPRESS_FLAG} -trimpath -ldflags="${LDFLAGS}" -o "${BUILD_OUTPUT}" .; then
+    if [ ! -z "$COMPRESS_FLAG" ]; then
+        upx --best --lzma "${BUILD_OUTPUT}" || true
+    fi
     echo -e "${GREEN}✅ 编译成功！${NC}"
     echo ""
 else
@@ -118,4 +129,3 @@ echo -e "  查看版本:"
 echo -e "    ${GREEN}./${BUILD_OUTPUT} --version${NC}"
 echo ""
 echo -e "${GREEN}🎉 构建完成！${NC}"
-
