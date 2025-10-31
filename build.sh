@@ -47,16 +47,16 @@ GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME=$(date '+%Y-%m-%d %H:%M:%S %Z')
 GO_VERSION=$(go version | awk '{print $3}' || echo "unknown")
 
-echo -e "   版本标签:   ${GREEN}${GIT_TAG}${NC}"
-echo -e "   提交哈希:   ${GREEN}${GIT_COMMIT}${NC}"
-echo -e "   构建时间:   ${GREEN}${BUILD_TIME}${NC}"
-echo -e "   Go 版本:    ${GREEN}${GO_VERSION}${NC}"
+echo -e "   版本标签: ${GREEN}${GIT_TAG}${NC}"
+echo -e "   提交哈希: ${GREEN}${GIT_COMMIT}${NC}"
+echo -e "   构建时间: ${GREEN}${BUILD_TIME}${NC}"
+echo -e "   Go 版本:  ${GREEN}${GO_VERSION}${NC}"
 echo ""
 
 # 构建二进制文件
 echo -e "${YELLOW}🔨 开始编译...${NC}"
-echo -e "   目标平台:   ${BLUE}$(go env GOOS)/$(go env GOARCH)${NC}"
-echo -e "   输出文件:   ${BLUE}${BUILD_OUTPUT}${NC}"
+echo -e "   目标平台: ${BLUE}$(go env GOOS)/$(go env GOARCH)${NC}"
+echo -e "   输出文件: ${BLUE}${BUILD_OUTPUT}${NC}"
 echo ""
 
 # 构建参数
@@ -96,10 +96,10 @@ FILE_SIZE=$(du -h "${BUILD_OUTPUT}" | cut -f1)
 FILE_PATH=$(realpath "${BUILD_OUTPUT}")
 
 echo -e "${GREEN}📦 二进制文件信息:${NC}"
-echo -e "   文件名:     ${BLUE}${BUILD_OUTPUT}${NC}"
-echo -e "   文件大小:   ${BLUE}${FILE_SIZE}${NC}"
-echo -e "   完整路径:   ${BLUE}${FILE_PATH}${NC}"
-echo -e "   可执行:     ${GREEN}✓${NC}"
+echo -e "   文件名:   ${BLUE}${BUILD_OUTPUT}${NC}"
+echo -e "   文件大小: ${BLUE}${FILE_SIZE}${NC}"
+echo -e "   完整路径: ${BLUE}${FILE_PATH}${NC}"
+echo -e "   可执行:   ${GREEN}✓${NC}"
 echo ""
 
 # 设置执行权限
