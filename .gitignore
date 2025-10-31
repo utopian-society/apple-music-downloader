@@ -6,4 +6,5 @@
 !go.sum
 !main.go
 !README.md
-!utils/*
+!utils/
+!utils/**
