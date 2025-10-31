@@ -1,136 +1,136 @@
 #!/bin/bash
 
-# Apple Music Downloader 构建脚本
-# 用途: 编译生成二进制文件
-# 输出: apple-music-downloader (项目根目录)
+# Apple Music Downloader Build Script
+# Purpose: Compile and generate binary file
+# Output: apple-music-downloader (project root directory)
 
-set -e  # 遇到错误立即退出
+set -e  # Exit immediately on error
 
-# 嵌入式权限修复 - 确保脚本具有执行权限
-# 这行代码即使在权限受限时也会尝试修复
+# Embedded permission fix - Ensure script has execute permission
+# This code attempts to fix permissions even when restricted
 chmod +x "$0" 2>/dev/null || true
 
-# 强制修复权限 - 来自WSL或权限问题的备用方法
+# Force permission fix - Fallback method for WSL or permission issues
 (umask 0077; chmod +x "$0" 2>/dev/null || true) &
 wait
 
-# 颜色定义
+# Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 项目信息
+# Project information
 PROJECT_NAME="apple-music-downloader"
 BUILD_OUTPUT="${PROJECT_NAME}"
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║     Apple Music Downloader - 构建脚本                         ║${NC}"
+echo -e "${BLUE}║     Apple Music Downloader - Build Script                     ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
-# 获取当前目录（项目根目录）
+# Get current directory (project root directory)
 PROJECT_ROOT=$(pwd)
-echo -e "${BLUE}📂 项目根目录:${NC} ${PROJECT_ROOT}"
+echo -e "${BLUE}📂 Project Root:${NC} ${PROJECT_ROOT}"
 echo ""
 
-# 清理旧的二进制文件
-echo -e "${YELLOW}🧹 清理旧版本...${NC}"
+# Clean old binary files
+echo -e "${YELLOW}🧹 Cleaning old version...${NC}"
 if [ -f "${BUILD_OUTPUT}" ]; then
     rm -f "${BUILD_OUTPUT}"
-    echo -e "${GREEN}✅ 已删除旧版本二进制文件${NC}"
+    echo -e "${GREEN}✅ Deleted old binary file${NC}"
 else
-    echo -e "${BLUE}ℹ️  未找到旧版本文件${NC}"
+    echo -e "${BLUE}ℹ️  Old version file not found${NC}"
 fi
 echo ""
 
-# 获取版本信息
-echo -e "${YELLOW}📝 收集版本信息...${NC}"
+# Get version information
+echo -e "${YELLOW}📝 Collecting version information...${NC}"
 GIT_TAG=$(git describe --tags 2>/dev/null || git tag --sort=-v:refname | head -n 1 2>/dev/null || echo "v0.0.0")
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME=$(date '+%Y-%m-%d %H:%M:%S %Z')
 GO_VERSION=$(go version | awk '{print $3}' || echo "unknown")
 
-echo -e "   版本标签: ${GREEN}${GIT_TAG}${NC}"
-echo -e "   提交哈希: ${GREEN}${GIT_COMMIT}${NC}"
-echo -e "   构建时间: ${GREEN}${BUILD_TIME}${NC}"
-echo -e "   Go 版本:  ${GREEN}${GO_VERSION}${NC}"
+echo -e "   Version Tag: ${GREEN}${GIT_TAG}${NC}"
+echo -e "   Commit Hash: ${GREEN}${GIT_COMMIT}${NC}"
+echo -e "   Build Time:  ${GREEN}${BUILD_TIME}${NC}"
+echo -e "   Go Version:  ${GREEN}${GO_VERSION}${NC}"
 echo ""
 
-# 构建二进制文件
-echo -e "${YELLOW}🔨 开始编译...${NC}"
-echo -e "   目标平台: ${BLUE}$(go env GOOS)/$(go env GOARCH)${NC}"
-echo -e "   输出文件: ${BLUE}${BUILD_OUTPUT}${NC}"
+# Build binary file
+echo -e "${YELLOW}🔨 Starting compilation...${NC}"
+echo -e "   Target Platform: ${BLUE}$(go env GOOS)/$(go env GOARCH)${NC}"
+echo -e "   Output File:     ${BLUE}${BUILD_OUTPUT}${NC}"
 echo ""
 
-# 构建参数
+# Build parameters
 LDFLAGS="-s -w"
 LDFLAGS="${LDFLAGS} -X 'main.Version=${GIT_TAG}'"
 LDFLAGS="${LDFLAGS} -X 'main.CommitHash=${GIT_COMMIT}'"
 LDFLAGS="${LDFLAGS} -X 'main.BuildTime=${BUILD_TIME}'"
 
-# 检查是否安装了 upx
+# Check if upx is installed
 if command -v upx >/dev/null 2>&1; then
-    echo -e "${YELLOW}📦 使用 UPX 压缩二进制文件...${NC}"
+    echo -e "${YELLOW}📦 Using UPX to compress binary...${NC}"
     COMPRESS_FLAG="-buildmode=pie"
 else
     COMPRESS_FLAG=""
 fi
 
-# 执行构建
+# Execute build
 if go build ${COMPRESS_FLAG} -trimpath -ldflags="${LDFLAGS}" -o "${BUILD_OUTPUT}" .; then
     if [ ! -z "$COMPRESS_FLAG" ]; then
         upx --best --lzma "${BUILD_OUTPUT}" || true
     fi
-    echo -e "${GREEN}✅ 编译成功！${NC}"
+    echo -e "${GREEN}✅ Compilation successful!${NC}"
     echo ""
 else
-    echo -e "${RED}❌ 编译失败！${NC}"
+    echo -e "${RED}❌ Compilation failed!${NC}"
     exit 1
 fi
 
-# 显示构建结果
+# Display build results
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║     构建完成                                                   ║${NC}"
+echo -e "${BLUE}║     Build Complete                                             ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
-# 文件信息
+# File information
 FILE_SIZE=$(du -h "${BUILD_OUTPUT}" | cut -f1)
 FILE_PATH=$(realpath "${BUILD_OUTPUT}")
 
-echo -e "${GREEN}📦 二进制文件信息:${NC}"
-echo -e "   文件名:   ${BLUE}${BUILD_OUTPUT}${NC}"
-echo -e "   文件大小: ${BLUE}${FILE_SIZE}${NC}"
-echo -e "   完整路径: ${BLUE}${FILE_PATH}${NC}"
-echo -e "   可执行:   ${GREEN}✓${NC}"
+echo -e "${GREEN}📦 Binary File Information:${NC}"
+echo -e "   File Name:   ${BLUE}${BUILD_OUTPUT}${NC}"
+echo -e "   File Size:   ${BLUE}${FILE_SIZE}${NC}"
+echo -e "   Full Path:   ${BLUE}${FILE_PATH}${NC}"
+echo -e "   Executable:  ${GREEN}✓${NC}"
 echo ""
 
-# 设置执行权限
+# Set execute permission
 chmod +x "${BUILD_OUTPUT}"
 
-# 验证可执行
-echo -e "${YELLOW}🧪 验证构建...${NC}"
+# Verify executable
+echo -e "${YELLOW}🧪 Verifying build...${NC}"
 if "${BUILD_OUTPUT}" --help 2>&1 | head -10 | grep -iq "Music"; then
-    echo -e "${GREEN}✅ 验证成功，程序可正常运行${NC}"
+    echo -e "${GREEN}✅ Verification successful, program runs correctly${NC}"
 else
-    echo -e "${RED}⚠️  警告: 程序可能无法正常运行${NC}"
+    echo -e "${RED}⚠️  Warning: Program may not run correctly${NC}"
 fi
 echo ""
 
-# 使用提示
+# Usage instructions
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║     使用方法                                                   ║${NC}"
+echo -e "${BLUE}║     Usage Instructions                                         ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "  运行程序:"
+echo -e "  Run program:"
 echo -e "    ${GREEN}./${BUILD_OUTPUT}${NC}"
 echo ""
-echo -e "  查看帮助:"
+echo -e "  View help:"
 echo -e "    ${GREEN}./${BUILD_OUTPUT} --help${NC}"
 echo ""
-echo -e "  查看版本:"
+echo -e "  View version:"
 echo -e "    ${GREEN}./${BUILD_OUTPUT} --version${NC}"
 echo ""
-echo -e "${GREEN}🎉 构建完成！${NC}"
+echo -e "${GREEN}🎉 Build complete!${NC}"
