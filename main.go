@@ -52,7 +52,69 @@ var (
 	Config         structs.ConfigSet
 	counter        structs.Counter
 	okDict         = make(map[string][]int)
+	countryNames   = map[string]string{
+		"us": "United States",
+		"gb": "United Kingdom",
+		"ca": "Canada",
+		"au": "Australia",
+		"nz": "New Zealand",
+		"jp": "Japan",
+		"kr": "South Korea",
+		"cn": "China",
+		"hk": "Hong Kong",
+		"tw": "Taiwan",
+		"sg": "Singapore",
+		"my": "Malaysia",
+		"th": "Thailand",
+		"id": "Indonesia",
+		"ph": "Philippines",
+		"vn": "Vietnam",
+		"in": "India",
+		"fr": "France",
+		"de": "Germany",
+		"es": "Spain",
+		"it": "Italy",
+		"nl": "Netherlands",
+		"be": "Belgium",
+		"se": "Sweden",
+		"no": "Norway",
+		"dk": "Denmark",
+		"fi": "Finland",
+		"pl": "Poland",
+		"ru": "Russia",
+		"tr": "Turkey",
+		"ae": "United Arab Emirates",
+		"sa": "Saudi Arabia",
+		"br": "Brazil",
+		"mx": "Mexico",
+		"ar": "Argentina",
+		"cl": "Chile",
+		"co": "Colombia",
+		"za": "South Africa",
+		"eg": "Egypt",
+		"ng": "Nigeria",
+		"ke": "Kenya",
+		"il": "Israel",
+		"at": "Austria",
+		"ch": "Switzerland",
+		"ie": "Ireland",
+		"pt": "Portugal",
+		"gr": "Greece",
+		"cz": "Czech Republic",
+		"hu": "Hungary",
+		"ro": "Romania",
+		"ua": "Ukraine",
+	}
 )
+
+func getCountryName(code string) string {
+	code = strings.ToLower(code)
+	if name, ok := countryNames[code]; ok {
+		return name
+	}
+	// Return uppercase code if not found
+	return strings.ToUpper(code)
+}
 
 func loadConfig() error {
 	data, err := os.ReadFile("config.yaml")
@@ -1685,18 +1747,54 @@ func ripPlaylist(playlistId string, token string, storefront string, mediaUserTo
 }
 
 func writeMP4Tags(track *task.Track, lrc string) error {
+	// Build custom tags map
+	customTags := map[string]string{
+		"PERFORMER":   track.Resp.Attributes.ArtistName,
+		"RELEASETIME": track.Resp.Attributes.ReleaseDate,
+		"ISRC":        track.Resp.Attributes.Isrc,
+		"LABEL":       "",
+		"UPC":         "",
+	}
+
+	// Add Apple Music metadata
+	if track.Resp.ID != "" {
+		customTags["CATALOG"] = track.Resp.ID
+	}
+
+	if track.PreType == "albums" && track.PreID != "" {
+		customTags["ALBUMID"] = track.PreID
+	} else if track.AlbumData.ID != "" {
+		customTags["ALBUMID"] = track.AlbumData.ID
+	}
+
+	if len(track.Resp.Relationships.Artists.Data) > 0 {
+		customTags["ARTISTID"] = track.Resp.Relationships.Artists.Data[0].ID
+	}
+
+	if track.PreType == "playlists" && track.PreID != "" {
+		customTags["PLAYLISTID"] = track.PreID
+	}
+
+	if len(track.Resp.Attributes.GenreNames) > 0 {
+		customTags["GENREID"] = track.Resp.Attributes.GenreNames[0]
+	}
+
+	if Config.Storefront != "" {
+		customTags["COUNTRY"] = getCountryName(Config.Storefront)
+	}
+
+	customTags["PURCHASEDATE"] = time.Now().Format("2006-01-02 15:04:05")
+
+	if track.Resp.Attributes.Isrc != "" {
+		customTags["VENDOR"] = ":isrc:" + track.Resp.Attributes.Isrc
+	}
+
 	t := &mp4tag.MP4Tags{
-		Title:      track.Resp.Attributes.Name,
-		TitleSort:  track.Resp.Attributes.Name,
-		Artist:     track.Resp.Attributes.ArtistName,
-		ArtistSort: track.Resp.Attributes.ArtistName,
-		Custom: map[string]string{
-			"PERFORMER":   track.Resp.Attributes.ArtistName,
-			"RELEASETIME": track.Resp.Attributes.ReleaseDate,
-			"ISRC":        track.Resp.Attributes.Isrc,
-			"LABEL":       "",
-			"UPC":         "",
-		},
+		Title:        track.Resp.Attributes.Name,
+		TitleSort:    track.Resp.Attributes.Name,
+		Artist:       track.Resp.Attributes.ArtistName,
+		ArtistSort:   track.Resp.Attributes.ArtistName,
+		Custom:       customTags,
 		Composer:     track.Resp.Attributes.ComposerName,
 		ComposerSort: track.Resp.Attributes.ComposerName,
 		CustomGenre:  track.Resp.Attributes.GenreNames[0],
@@ -1756,6 +1854,10 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.AlbumArtistSort = track.AlbumData.Attributes.ArtistName
 		t.Custom["UPC"] = track.AlbumData.Attributes.Upc
 		t.Custom["LABEL"] = track.AlbumData.Attributes.RecordLabel
+		// Update Vendor with label
+		if track.AlbumData.Attributes.RecordLabel != "" && track.Resp.Attributes.Isrc != "" {
+			t.Custom["VENDOR"] = track.AlbumData.Attributes.RecordLabel + ":isrc:" + track.Resp.Attributes.Isrc
+		}
 		t.Date = track.AlbumData.Attributes.ReleaseDate
 		t.Copyright = track.AlbumData.Attributes.Copyright
 		t.Publisher = track.AlbumData.Attributes.RecordLabel
@@ -1773,6 +1875,11 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.AlbumArtist = track.AlbumData.Attributes.ArtistName
 		t.AlbumArtistSort = track.AlbumData.Attributes.ArtistName
 		t.Custom["UPC"] = track.AlbumData.Attributes.Upc
+		t.Custom["LABEL"] = track.AlbumData.Attributes.RecordLabel
+		// Update Vendor with label
+		if track.AlbumData.Attributes.RecordLabel != "" && track.Resp.Attributes.Isrc != "" {
+			t.Custom["VENDOR"] = track.AlbumData.Attributes.RecordLabel + ":isrc:" + track.Resp.Attributes.Isrc
+		}
 		t.Date = track.AlbumData.Attributes.ReleaseDate
 		t.Copyright = track.AlbumData.Attributes.Copyright
 		t.Publisher = track.AlbumData.Attributes.RecordLabel
