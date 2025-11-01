@@ -458,7 +458,7 @@ func ExtMvData(keyAndUrls string, savePath string) error {
 	// --- 新增代码: 创建带缓冲的 Channel 作为信号量 ---
 	limiter := make(chan struct{}, maxConcurrency)
 	client := &http.Client{
-		Timeout: 30 * time.Second, // Add timeout to prevent hanging connections
+		Timeout: 5 * time.Minute, // Increased timeout for slow/unstable connections
 	}
 
 	// 初始化进度条
