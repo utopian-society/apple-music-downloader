@@ -2175,6 +2175,13 @@ func processURL(urlRaw string, albumNum int, albumTotal int, token string, mutex
 		mutex.Lock()
 		counter.Total++
 		mutex.Unlock()
+		if !Config.DownloadMusicVideo {
+			mutex.Lock()
+			fmt.Println(": Music video download is disabled, skipping")
+			counter.Success++
+			mutex.Unlock()
+			return
+		}
 		if len(Config.MediaUserToken) <= 50 {
 			mutex.Lock()
 			fmt.Println(": meida-user-token is not set, skip MV dl")

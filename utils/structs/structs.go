@@ -39,6 +39,7 @@ type ConfigSet struct {
 	DlAlbumcoverForPlaylist    bool   `yaml:"dl-albumcover-for-playlist"`
 	MVAudioType                string `yaml:"mv-audio-type"`
 	MVMax                      int    `yaml:"mv-max"`
+	DownloadMusicVideo         bool   `yaml:"download-music-video"`
 	ConvertAfterDownload       bool   `yaml:"convert-after-download"`
 	ConvertFormat              string `yaml:"convert-format"`
 	ConvertKeepOriginal        bool   `yaml:"convert-keep-original"`
