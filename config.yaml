@@ -35,6 +35,8 @@ song-file-format: "{SongNumer}. {SongName}"
 #{ArtistId} {ArtistName}/{UrlArtistName}
 #if artist-folder-format set "",will not make artist folder
 artist-folder-format: "{UrlArtistName}"
+#if set true, will create separate folders for each disc in multi-disc albums
+separate-disc-folders: false
 #if set "" will not add tag
 explicit-choice : "[E]"
 clean-choice : "[C]"
