@@ -52,8 +52,6 @@ mv-max: 2160
 # if your account is from Japan, you must use jp.
 # if the storefront is different from your account, you will see a "failed to get lyrics" error in most of the songs. By default the storefront is set to US if not set.
 storefront: "enter your account storefront"
-# Batch processing settings
-batch-concurrent-downloads: 3     # Number of concurrent downloads when using --batch (1-10)
 # Conversion settings
 convert-after-download: false     # Enable post-download conversion (requires ffmpeg)
 convert-format: "flac"            # flac | mp3 | opus | wav | copy (no re-encode)
