@@ -14,9 +14,10 @@ type SearchResp struct {
 
 // SearchResults contains the different types of search results.
 type SearchResults struct {
-	Songs   *SongResults   `json:"songs,omitempty"`
-	Albums  *AlbumResults  `json:"albums,omitempty"`
-	Artists *ArtistResults `json:"artists,omitempty"`
+	Songs       *SongResults       `json:"songs,omitempty"`
+	Albums      *AlbumResults      `json:"albums,omitempty"`
+	Artists     *ArtistResults     `json:"artists,omitempty"`
+	MusicVideos *MusicVideoResults `json:"music-videos,omitempty"`
 }
 
 // SongResults contains a list of song search results.
@@ -47,6 +48,13 @@ type ArtistResults struct {
 			URL        string   `json:"url"`
 		} `json:"attributes"`
 	} `json:"data"`
+}
+
+// MusicVideoResults contains a list of music video search results.
+type MusicVideoResults struct {
+	Href string               `json:"href"`
+	Next string               `json:"next"`
+	Data []MusicVideoRespData `json:"data"`
 }
 
 // Search performs a search query against the Apple Music API.

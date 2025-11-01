@@ -688,6 +688,11 @@ func promptForQuality(item SearchResultItem, token string) (string, error) {
 		return "default", nil
 	}
 
+	if item.Type == "MusicVideo" {
+		fmt.Println("Music video selected. Proceeding to download.")
+		return "default", nil
+	}
+
 	fmt.Printf("\nFetching available qualities for: %s\n", item.Name)
 
 	qualities := []QualityOption{
@@ -719,9 +724,9 @@ func promptForQuality(item SearchResultItem, token string) (string, error) {
 // handleSearch manages the entire interactive search process.
 func handleSearch(searchType string, queryParts []string, token string) (string, error) {
 	query := strings.Join(queryParts, " ")
-	validTypes := map[string]bool{"album": true, "song": true, "artist": true}
+	validTypes := map[string]bool{"album": true, "song": true, "artist": true, "music-video": true}
 	if !validTypes[searchType] {
-		return "", fmt.Errorf("invalid search type: %s. Use 'album', 'song', or 'artist'", searchType)
+		return "", fmt.Errorf("invalid search type: %s. Use 'album', 'song', 'artist', or 'music-video'", searchType)
 	}
 
 	fmt.Printf("Searching for %ss: \"%s\" in storefront \"%s\"\n", searchType, query, Config.Storefront)
@@ -729,7 +734,11 @@ func handleSearch(searchType string, queryParts []string, token string) (string,
 	offset := 0
 	limit := 15 // Increased limit for better navigation
 
+	// Map search type to API type
 	apiSearchType := searchType + "s"
+	if searchType == "music-video" {
+		apiSearchType = "music-videos"
+	}
 
 	for {
 		searchResp, err := ampapi.Search(Config.Storefront, query, apiSearchType, Config.Language, token, limit, offset)
@@ -785,6 +794,19 @@ func handleSearch(searchType string, queryParts []string, token string) (string,
 					items = append(items, SearchResultItem{Type: "Artist", URL: item.Attributes.URL, ID: item.ID})
 				}
 				hasNext = searchResp.Results.Artists.Next != ""
+			}
+		case "music-video":
+			if searchResp.Results.MusicVideos != nil {
+				for _, item := range searchResp.Results.MusicVideos.Data {
+					year := ""
+					if len(item.Attributes.ReleaseDate) >= 4 {
+						year = item.Attributes.ReleaseDate[:4]
+					}
+					detail := fmt.Sprintf("%s (%s)", item.Attributes.ArtistName, year)
+					displayOptions = append(displayOptions, fmt.Sprintf("%s - %s", item.Attributes.Name, detail))
+					items = append(items, SearchResultItem{Type: "MusicVideo", URL: item.Attributes.URL, ID: item.ID})
+				}
+				hasNext = searchResp.Results.MusicVideos.Next != ""
 			}
 		}
 
@@ -2331,7 +2353,7 @@ func main() {
 	}
 	var search_type string
 	var batch_files []string
-	pflag.StringVar(&search_type, "search", "", "Search for 'album', 'song', or 'artist'. Provide query after flags.")
+	pflag.StringVar(&search_type, "search", "", "Search for 'album', 'song', 'artist', or 'music-video'. Provide query after flags.")
 	pflag.StringArrayVar(&batch_files, "batch", []string{}, "Path(s) to TXT file(s) containing album/playlist URLs (one per line). Can be specified multiple times.")
 	pflag.BoolVar(&dl_atmos, "atmos", false, "Enable atmos download mode")
 	pflag.BoolVar(&dl_aac, "aac", false, "Enable adm-aac download mode")
