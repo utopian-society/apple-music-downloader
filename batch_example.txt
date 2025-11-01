@@ -1,0 +1,11 @@
+# batch_example.txt
+# One Apple Music URL per line. Blank lines and lines starting with # are ignored.
+# Example entries below — replace or append your own Apple Music URLs.
+
+https://music.apple.com/us/album/whenever-you-need-somebody-2022-remaster/1624945511
+https://music.apple.com/us/album/never-gonna-give-you-up-2022-remaster/1624945511?i=1624945512
+https://music.apple.com/us/song/you-move-me-2022-remaster/1624945520
+https://music.apple.com/us/playlist/taylor-swift-essentials/pl.3950454ced8c45a3b0cc693c2a7db97b
+https://music.apple.com/us/playlist/hi-res-lossless-24-bit-192khz/pl.u-MDAWvpjt38370N
+https://music.apple.com/us/artist/taylor-swift/159260351
+
