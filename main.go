@@ -2336,6 +2336,20 @@ func main() {
 
 	args := pflag.Args()
 
+	// If --batch flag is used, check if there are additional .txt files in args
+	if len(batch_files) > 0 && len(args) > 0 {
+		// Add any .txt files from args to batch_files
+		var remainingArgs []string
+		for _, arg := range args {
+			if strings.HasSuffix(strings.ToLower(arg), ".txt") {
+				batch_files = append(batch_files, arg)
+			} else {
+				remainingArgs = append(remainingArgs, arg)
+			}
+		}
+		args = remainingArgs
+	}
+
 	// If --batch flag is not used but positional args look like batch files, treat them as such
 	if len(batch_files) == 0 && len(args) > 0 {
 		// Check if all args are .txt files (batch files)
