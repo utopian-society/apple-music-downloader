@@ -273,6 +273,44 @@ func fileExists(path string) (bool, error) {
 	return false, err
 }
 
+func readUrlsFromFile(filePath string) ([]string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open batch file: %v", err)
+	}
+	defer file.Close()
+
+	var urls []string
+	scanner := bufio.NewScanner(file)
+	lineNum := 0
+	for scanner.Scan() {
+		lineNum++
+		line := strings.TrimSpace(scanner.Text())
+
+		// Skip empty lines and comments
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//") {
+			continue
+		}
+
+		// Validate URL format
+		if strings.Contains(line, "music.apple.com") || strings.Contains(line, "classical.music.apple.com") {
+			urls = append(urls, line)
+		} else {
+			fmt.Printf("Warning: Line %d does not appear to be a valid Apple Music URL: %s\n", lineNum, line)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading batch file: %v", err)
+	}
+
+	if len(urls) == 0 {
+		return nil, fmt.Errorf("no valid URLs found in batch file")
+	}
+
+	return urls, nil
+}
+
 func checkUrl(url string) (string, string) {
 	pat := regexp.MustCompile(`^(?:https://(?:beta\.music|music|classical\.music)\.apple\.com/(\w{2})(?:/album|/album/.+))/(?:id)?(\d[^\D]+)(?:$|\?)`)
 	matches := pat.FindAllStringSubmatch(url, -1)
@@ -339,7 +377,7 @@ func getUrlSong(songUrl string, token string) (string, error) {
 	storefront, songId := checkUrlSong(songUrl)
 	manifest, err := ampapi.GetSongResp(storefront, songId, Config.Language, token)
 	if err != nil {
-		fmt.Println("\u26A0 Failed to get manifest:", err)
+		fmt.Println("[WARNING] Failed to get manifest:", err)
 		counter.NotSong++
 		return "", err
 	}
@@ -953,7 +991,7 @@ func ripTrack(track *task.Track, token string, mediaUserToken string) {
 		}
 		err := mvDownloader(track.ID, track.SaveDir, token, track.Storefront, mediaUserToken, track)
 		if err != nil {
-			fmt.Println("\u26A0 Failed to dl MV:", err)
+			fmt.Println("[WARNING] Failed to dl MV:", err)
 			counter.Error++
 			return
 		}
@@ -1109,7 +1147,7 @@ func ripTrack(track *task.Track, token string, mediaUserToken string) {
 	} else {
 		trackM3u8Url, _, err := extractMedia(track.M3u8, false)
 		if err != nil {
-			fmt.Println("\u26A0 Failed to extract info from manifest:", err)
+			fmt.Println("[WARNING] Failed to extract info from manifest:", err)
 			counter.Unavailable++
 			return
 		}
@@ -1152,7 +1190,7 @@ func ripTrack(track *task.Track, token string, mediaUserToken string) {
 	track.SavePath = trackPath
 	err = writeMP4Tags(track, lrc)
 	if err != nil {
-		fmt.Println("\u26A0 Failed to write tags in media:", err)
+		fmt.Println("[WARNING] Failed to write tags in media:", err)
 		counter.Unavailable++
 		return
 	}
@@ -2045,7 +2083,9 @@ func main() {
 		}
 	}
 	var search_type string
+	var batch_file string
 	pflag.StringVar(&search_type, "search", "", "Search for 'album', 'song', or 'artist'. Provide query after flags.")
+	pflag.StringVar(&batch_file, "batch", "", "Path to a TXT file containing album/playlist URLs (one per line)")
 	pflag.BoolVar(&dl_atmos, "atmos", false, "Enable atmos download mode")
 	pflag.BoolVar(&dl_aac, "aac", false, "Enable adm-aac download mode")
 	pflag.BoolVar(&dl_select, "select", false, "Enable selective download")
@@ -2061,6 +2101,7 @@ func main() {
 	pflag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] [url1 url2 ...]\n", "[main | main.exe | go run main.go]")
 		fmt.Fprintf(os.Stderr, "Search Usage: %s --search [album|song|artist] [query]\n", "[main | main.exe | go run main.go]")
+		fmt.Fprintf(os.Stderr, "Batch Usage: %s --batch [file.txt]\n", "[main | main.exe | go run main.go]")
 		fmt.Println("\nOptions:")
 		pflag.PrintDefaults()
 	}
@@ -2074,7 +2115,16 @@ func main() {
 
 	args := pflag.Args()
 
-	if search_type != "" {
+	if batch_file != "" {
+		// Batch file mode
+		urls, err := readUrlsFromFile(batch_file)
+		if err != nil {
+			fmt.Printf("Error reading batch file: %v\n", err)
+			return
+		}
+		fmt.Printf("Loaded %d URLs from batch file: %s\n", len(urls), batch_file)
+		os.Args = urls
+	} else if search_type != "" {
 		if len(args) == 0 {
 			fmt.Println("Error: --search flag requires a query.")
 			pflag.Usage()
@@ -2155,7 +2205,7 @@ func main() {
 				storefront, albumId = checkUrlMv(urlRaw)
 				err := mvDownloader(albumId, mvSaveDir, token, storefront, Config.MediaUserToken, nil)
 				if err != nil {
-					fmt.Println("\u26A0 Failed to dl MV:", err)
+					fmt.Println("[WARNING] Failed to dl MV:", err)
 					counter.Error++
 					continue
 				}
@@ -2210,7 +2260,7 @@ func main() {
 				fmt.Println("Invalid type")
 			}
 		}
-		fmt.Printf("=======  [\u2714 ] Completed: %d/%d  |  [\u26A0 ] Warnings: %d  |  [\u2716 ] Errors: %d  =======\n", counter.Success, counter.Total, counter.Unavailable+counter.NotSong, counter.Error)
+		fmt.Printf("=======  [OK] Completed: %d/%d  |  [WARNING] Warnings: %d  |  [ERROR] Errors: %d  =======\n", counter.Success, counter.Total, counter.Unavailable+counter.NotSong, counter.Error)
 		if counter.Error == 0 {
 			break
 		}
@@ -2224,7 +2274,7 @@ func main() {
 func mvDownloader(adamID string, saveDir string, token string, storefront string, mediaUserToken string, track *task.Track) error {
 	MVInfo, err := ampapi.GetMusicVideoResp(storefront, adamID, Config.Language, token)
 	if err != nil {
-		fmt.Println("\u26A0 Failed to get MV manifest:", err)
+		fmt.Println("[WARNING] Failed to get MV manifest:", err)
 		return nil
 	}
 

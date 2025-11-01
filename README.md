@@ -10,6 +10,7 @@ English / [简体中文](./README-CN.md)
 4. The download decryption part is replaced with Sendy McSenderson to decrypt while downloading, and solve the lack of memory when decrypting large files
 5. MV Download, installation required[mp4decrypt](https://www.bento4.com/downloads/)
 6. Add interactive search with arrow-key navigation `go run main.go --search [song/album/artist] "search_term"`
+7. **Batch download support** - Download multiple albums/playlists from a text file `go run main.go --batch urls.txt`
 
 ### Special thanks to `chocomint` for creating `agent-arm64.js`
 
@@ -36,6 +37,7 @@ Original script by Sorrow. Modified by me to include some fixes and improvements
 6. For dolby atmos: `go run main.go --atmos https://music.apple.com/us/album/1989-taylors-version-deluxe/1713845538`.
 7. For aac: `go run main.go --aac https://music.apple.com/us/album/1989-taylors-version-deluxe/1713845538`.
 8. For see quality: `go run main.go --debug https://music.apple.com/us/album/1989-taylors-version-deluxe/1713845538`.
+9. **For batch download from a file**: `go run main.go --batch urls.txt` (Create a text file with one Apple Music URL per line. See `batch_example.txt` for format).
 
 [Chinese tutorial - see Method 3 for details](https://telegra.ph/Apple-Music-Alac高解析度无损音乐下载教程-04-02-2)
 
