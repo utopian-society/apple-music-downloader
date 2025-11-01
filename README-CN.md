@@ -11,6 +11,7 @@
 5. MV下载，需要安装[mp4decrypt](https://www.bento4.com/downloads/)
 6. 支持交互式搜索 `go run main.go --search [song/album/artist] "搜索词"`
 7. **批量下载支持** - 从文本文件批量下载多个专辑/播放列表 `go run main.go --batch urls.txt`
+8. **分盘文件夹** - 多碟专辑自动按光盘分文件夹组织（可通过 config.yaml 中的 `separate-disc-folders` 配置）
 
 ### 特别感谢 `chocomint` 创建 `agent-arm64.js`
 对于获取`aac-lc` `MV` `歌词` 必须填入有订阅的`media-user-token`
@@ -47,3 +48,30 @@
 3. 找到名为“media-user-token”的 Cookie 并复制其值
 4. 将步骤 3 中获取的 Cookie 值粘贴到 config.yaml 文件中并保存
 5. 正常启动脚本
+
+## 配置选项
+
+### 多碟专辑组织
+
+下载器现在支持将多碟专辑组织到单独的光盘文件夹中。这由 `config.yaml` 中的 `separate-disc-folders` 选项控制：
+
+- **`separate-disc-folders: true`** - 为多碟专辑中的每张光盘创建"Disc 1"、"Disc 2"等子文件夹
+- **`separate-disc-folders: false`**（默认）- 所有曲目直接保存在专辑文件夹中
+
+**启用 `separate-disc-folders: true` 后的文件夹结构示例：**
+```
+歌手名/
+└── 专辑名 [ALAC]/
+    ├── cover.jpg
+    ├── Disc 1/
+    │   ├── cover.jpg
+    │   ├── 01. 歌曲标题.m4a
+    │   └── 02. 歌曲标题.m4a
+    └── Disc 2/
+        ├── cover.jpg
+        ├── 01. 歌曲标题.m4a
+        └── 02. 歌曲标题.m4a
+```
+
+**注意：** 单碟专辑不受此设置影响，将继续直接在专辑文件夹中保存曲目。
+

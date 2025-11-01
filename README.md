@@ -11,6 +11,7 @@ English / [简体中文](./README-CN.md)
 5. MV Download, installation required[mp4decrypt](https://www.bento4.com/downloads/)
 6. Add interactive search with arrow-key navigation `go run main.go --search [song/album/artist] "search_term"`
 7. **Batch download support** - Download multiple albums/playlists from a text file `go run main.go --batch urls.txt`
+8. **Disc folder separation** - Automatically organize multi-disc albums into separate disc folders (configurable via `separate-disc-folders` in config.yaml)
 
 ### Special thanks to `chocomint` for creating `agent-arm64.js`
 
@@ -64,3 +65,30 @@ Original script by Sorrow. Modified by me to include some fixes and improvements
 11. Start the script as usual.
 
 Noted: These features are only in beta version right now.
+
+## Configuration Options
+
+### Multi-Disc Album Organization
+
+The downloader now supports organizing multi-disc albums into separate disc folders. This is controlled by the `separate-disc-folders` option in `config.yaml`:
+
+- **`separate-disc-folders: true`** - Creates a "Disc 1", "Disc 2", etc. subfolder for each disc in multi-disc albums
+- **`separate-disc-folders: false`** (default) - All tracks are saved directly in the album folder
+
+**Example folder structure with `separate-disc-folders: true`:**
+```
+Artist Name/
+└── Album Name [ALAC]/
+    ├── cover.jpg
+    ├── Disc 1/
+    │   ├── cover.jpg
+    │   ├── 01. Song Title.m4a
+    │   └── 02. Song Title.m4a
+    └── Disc 2/
+        ├── cover.jpg
+        ├── 01. Song Title.m4a
+        └── 02. Song Title.m4a
+```
+
+**Note:** Single-disc albums are not affected by this setting and will continue to save tracks directly in the album folder.
+

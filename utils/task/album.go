@@ -91,9 +91,24 @@ func (a *Album) ShowSelect() []int {
 	}
 	selected := []int{}
 	var data [][]string
+
+	// Check if album has multiple discs
+	hasMultipleDiscs := false
+	for _, track := range meta.Data[0].Relationships.Tracks.Data {
+		if track.Attributes.DiscNumber > 1 {
+			hasMultipleDiscs = true
+			break
+		}
+	}
+
 	for trackNum, track := range meta.Data[0].Relationships.Tracks.Data {
 		trackNum++
-		trackName := fmt.Sprintf("%02d. %s", track.Attributes.TrackNumber, track.Attributes.Name)
+		var trackName string
+		if hasMultipleDiscs {
+			trackName = fmt.Sprintf("D%d-%02d. %s", track.Attributes.DiscNumber, track.Attributes.TrackNumber, track.Attributes.Name)
+		} else {
+			trackName = fmt.Sprintf("%02d. %s", track.Attributes.TrackNumber, track.Attributes.Name)
+		}
 		data = append(data, []string{fmt.Sprint(trackNum),
 			trackName,
 			track.Attributes.ContentRating,

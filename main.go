@@ -1642,10 +1642,42 @@ func ripAlbum(albumId string, token string, storefront string, mediaUserToken st
 			}
 		}
 	}
+	// Determine if we need to create disc folders
+	hasMultipleDiscs := false
+	maxDiscNumber := 1
+	for _, track := range album.Tracks {
+		if track.Resp.Attributes.DiscNumber > maxDiscNumber {
+			maxDiscNumber = track.Resp.Attributes.DiscNumber
+		}
+	}
+	if maxDiscNumber > 1 {
+		hasMultipleDiscs = true
+	}
+
+	// Set SaveDir, CoverPath, and Codec for each track
 	for i := range album.Tracks {
 		album.Tracks[i].CoverPath = covPath
-		album.Tracks[i].SaveDir = albumFolderPath
 		album.Tracks[i].Codec = Codec
+
+		// Create disc-specific folders if enabled and album has multiple discs
+		if Config.SeparateDiscFolders && hasMultipleDiscs {
+			discNumber := album.Tracks[i].Resp.Attributes.DiscNumber
+			if discNumber == 0 {
+				discNumber = 1 // Default to disc 1 if not set
+			}
+			discFolderName := fmt.Sprintf("Disc %d", discNumber)
+			discFolderPath := filepath.Join(albumFolderPath, discFolderName)
+			os.MkdirAll(discFolderPath, os.ModePerm)
+			album.Tracks[i].SaveDir = discFolderPath
+
+			// Copy cover to disc folder
+			discCovPath, err := writeCover(discFolderPath, "cover", meta.Data[0].Attributes.Artwork.URL)
+			if err == nil {
+				album.Tracks[i].CoverPath = discCovPath
+			}
+		} else {
+			album.Tracks[i].SaveDir = albumFolderPath
+		}
 	}
 	trackTotal := len(meta.Data[0].Relationships.Tracks.Data)
 	arr := make([]int, trackTotal)
