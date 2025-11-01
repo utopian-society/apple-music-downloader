@@ -186,7 +186,8 @@ var countryNames = map[string]string{
 	"zw": "Zimbabwe",
 }
 
-func getCountryName(code string) string {
+// GetCountryName returns the full country name for a given country code
+func GetCountryName(code string) string {
 	code = strings.ToLower(code)
 	if name, ok := countryNames[code]; ok {
 		return name
@@ -295,7 +296,7 @@ func WriteMP4Tags(trackPath, lrc string, meta *ampapi.AlbumResp, trackNum, track
 	}
 
 	if config.Storefront != "" {
-		customTags["COUNTRY"] = getCountryName(config.Storefront)
+		customTags["COUNTRY"] = GetCountryName(config.Storefront)
 	}
 
 	customTags["PURCHASEDATE"] = time.Now().Format("2006-01-02 15:04:05")

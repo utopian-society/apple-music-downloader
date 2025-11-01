@@ -23,6 +23,7 @@ import (
 
 	"main/utils/ampapi"
 	"main/utils/lyrics"
+	"main/utils/metadata"
 	"main/utils/runv2"
 	"main/utils/runv3"
 	"main/utils/structs"
@@ -54,185 +55,11 @@ var (
 	counter        structs.Counter
 	okDict         = make(map[string][]int)
 	// Shared HTTP client with optimized settings for lower resource usage
-	httpClient   *http.Client
-	countryNames = map[string]string{
-		"ae": "UAE",
-		"ag": "Antigua and Barbuda",
-		"ai": "Anguilla",
-		"am": "Armenia",
-		"ao": "Angola",
-		"ar": "Argentina",
-		"at": "Austria",
-		"au": "Australia",
-		"az": "Azerbaijan",
-		"ba": "Bosnia and Herzegovina",
-		"bb": "Barbados",
-		"be": "Belgium",
-		"bg": "Bulgaria",
-		"bh": "Bahrain",
-		"bj": "Benin",
-		"bm": "Bermuda",
-		"bo": "Bolivia",
-		"br": "Brazil",
-		"bs": "Bahamas",
-		"bt": "Bhutan",
-		"bw": "Botswana",
-		"by": "Belarus",
-		"bz": "Belize",
-		"ca": "Canada",
-		"cd": "Democratic Republic of the Congo",
-		"cg": "Republic of the Congo",
-		"ch": "Switzerland",
-		"ci": "Côte d'Ivoire",
-		"cl": "Chile",
-		"cm": "Cameroon",
-		"cn": "China mainland",
-		"co": "Colombia",
-		"cr": "Costa Rica",
-		"cv": "Cape Verde",
-		"cy": "Cyprus",
-		"cz": "Czech Republic",
-		"de": "Germany",
-		"dk": "Denmark",
-		"dm": "Dominica",
-		"do": "Dominican Republic",
-		"dz": "Algeria",
-		"ec": "Ecuador",
-		"ee": "Estonia",
-		"eg": "Egypt",
-		"es": "Spain",
-		"fj": "Fiji",
-		"fi": "Finland",
-		"fm": "Micronesia, Federated States of",
-		"fr": "France",
-		"ga": "Gabon",
-		"gb": "United Kingdom",
-		"gd": "Grenada",
-		"ge": "Georgia",
-		"gh": "Ghana",
-		"gm": "Gambia",
-		"gr": "Greece",
-		"gt": "Guatemala",
-		"gw": "Guinea-Bissau",
-		"gy": "Guyana",
-		"hk": "Hong Kong",
-		"hn": "Honduras",
-		"hr": "Croatia",
-		"hu": "Hungary",
-		"id": "Indonesia",
-		"ie": "Ireland",
-		"il": "Israel",
-		"in": "India",
-		"iq": "Iraq",
-		"is": "Iceland",
-		"it": "Italy",
-		"jm": "Jamaica",
-		"jo": "Jordan",
-		"jp": "Japan",
-		"ke": "Kenya",
-		"kg": "Kyrgyzstan",
-		"kh": "Cambodia",
-		"kn": "St. Kitts and Nevis",
-		"kr": "Korea, Republic of",
-		"kw": "Kuwait",
-		"ky": "Cayman Islands",
-		"kz": "Kazakhstan",
-		"la": "Lao People's Democratic Republic",
-		"lb": "Lebanon",
-		"lc": "St. Lucia",
-		"lk": "Sri Lanka",
-		"lr": "Liberia",
-		"lt": "Lithuania",
-		"lu": "Luxembourg",
-		"lv": "Latvia",
-		"ly": "Libya",
-		"ma": "Morocco",
-		"md": "Moldova",
-		"me": "Montenegro",
-		"mg": "Madagascar",
-		"mk": "North Macedonia",
-		"ml": "Mali",
-		"mm": "Myanmar",
-		"mn": "Mongolia",
-		"mo": "Macao",
-		"mr": "Mauritania",
-		"ms": "Montserrat",
-		"mt": "Malta",
-		"mu": "Mauritius",
-		"mv": "Maldives",
-		"mw": "Malawi",
-		"mx": "Mexico",
-		"my": "Malaysia",
-		"mz": "Mozambique",
-		"na": "Namibia",
-		"ne": "Niger",
-		"ng": "Nigeria",
-		"ni": "Nicaragua",
-		"nl": "Netherlands",
-		"no": "Norway",
-		"np": "Nepal",
-		"nz": "New Zealand",
-		"om": "Oman",
-		"pa": "Panama",
-		"pe": "Peru",
-		"pg": "Papua New Guinea",
-		"ph": "Philippines",
-		"pl": "Poland",
-		"pt": "Portugal",
-		"py": "Paraguay",
-		"qa": "Qatar",
-		"ro": "Romania",
-		"rs": "Serbia",
-		"ru": "Russia",
-		"rw": "Rwanda",
-		"sa": "Saudi Arabia",
-		"sb": "Solomon Islands",
-		"sc": "Seychelles",
-		"se": "Sweden",
-		"sg": "Singapore",
-		"si": "Slovenia",
-		"sk": "Slovakia",
-		"sl": "Sierra Leone",
-		"sn": "Senegal",
-		"sr": "Suriname",
-		"sv": "El Salvador",
-		"sz": "Eswatini",
-		"tc": "Turks and Caicos",
-		"td": "Chad",
-		"th": "Thailand",
-		"tj": "Tajikistan",
-		"tm": "Turkmenistan",
-		"tn": "Tunisia",
-		"to": "Tonga",
-		"tr": "Türkiye",
-		"tt": "Trinidad and Tobago",
-		"tw": "Taiwan",
-		"tz": "Tanzania",
-		"ua": "Ukraine",
-		"ug": "Uganda",
-		"us": "United States",
-		"uy": "Uruguay",
-		"uz": "Uzbekistan",
-		"vc": "St. Vincent and The Grenadines",
-		"ve": "Venezuela",
-		"vg": "British Virgin Islands",
-		"vn": "Vietnam",
-		"vu": "Vanuatu",
-		"xk": "Kosovo",
-		"ye": "Yemen",
-		"za": "South Africa",
-		"zm": "Zambia",
-		"zw": "Zimbabwe",
-	}
+	httpClient *http.Client
 )
 
 func getCountryName(code string) string {
-	code = strings.ToLower(code)
-	if name, ok := countryNames[code]; ok {
-		return name
-	}
-	// Return uppercase code if not found
-	return strings.ToUpper(code)
+	return metadata.GetCountryName(code)
 }
 
 func loadConfig() error {
@@ -545,96 +372,11 @@ func checkArtist(artistUrl string, token string, relationship string) ([]string,
 }
 
 func writeCover(sanAlbumFolder, name string, url string) (string, error) {
-	originalUrl := url
-	var ext string
-	var covPath string
-	if Config.CoverFormat == "original" {
-		ext = strings.Split(url, "/")[len(strings.Split(url, "/"))-2]
-		ext = ext[strings.LastIndex(ext, ".")+1:]
-		covPath = filepath.Join(sanAlbumFolder, name+"."+ext)
-	} else {
-		covPath = filepath.Join(sanAlbumFolder, name+"."+Config.CoverFormat)
-	}
-	exists, err := fileExists(covPath)
-	if err != nil {
-		fmt.Println("Failed to check if cover exists.")
-		return "", err
-	}
-	if exists {
-		_ = os.Remove(covPath)
-	}
-	if Config.CoverFormat == "png" {
-		re := regexp.MustCompile(`{w}x{h}`)
-		parts := re.Split(url, 2)
-		url = parts[0] + "{w}x{h}" + strings.Replace(parts[1], ".jpg", ".png", 1)
-	}
-	url = strings.Replace(url, "{w}x{h}", Config.CoverSize, 1)
-	if Config.CoverFormat == "original" {
-		url = strings.Replace(url, "is1-ssl.mzstatic.com/image/thumb", "a5.mzstatic.com/us/r1000/0", 1)
-		url = url[:strings.LastIndex(url, "/")]
-	}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-	do, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer do.Body.Close()
-	if do.StatusCode != http.StatusOK {
-		if Config.CoverFormat == "original" {
-			fmt.Println("Failed to get cover, falling back to " + ext + " url.")
-			splitByDot := strings.Split(originalUrl, ".")
-			last := splitByDot[len(splitByDot)-1]
-			fallback := originalUrl[:len(originalUrl)-len(last)] + ext
-			fallback = strings.Replace(fallback, "{w}x{h}", Config.CoverSize, 1)
-			fmt.Println("Fallback URL:", fallback)
-			req, err = http.NewRequest("GET", fallback, nil)
-			if err != nil {
-				fmt.Println("Failed to create request for fallback url.")
-				return "", err
-			}
-			req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-			do, err = http.DefaultClient.Do(req)
-			if err != nil {
-				fmt.Println("Failed to get cover from fallback url.")
-				return "", err
-			}
-			defer do.Body.Close()
-			if do.StatusCode != http.StatusOK {
-				fmt.Println(fallback)
-				return "", errors.New(do.Status)
-			}
-		} else {
-			return "", errors.New(do.Status)
-		}
-	}
-	f, err := os.Create(covPath)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	_, err = io.Copy(f, do.Body)
-	if err != nil {
-		return "", err
-	}
-	return covPath, nil
+	return metadata.WriteCover(sanAlbumFolder, name, url, Config)
 }
 
 func writeLyrics(sanAlbumFolder, filename string, lrc string) error {
-	lyricspath := filepath.Join(sanAlbumFolder, filename)
-	f, err := os.Create(lyricspath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = f.WriteString(lrc)
-	if err != nil {
-		return err
-	}
-	return nil
+	return metadata.WriteLyrics(sanAlbumFolder, filename, lrc)
 }
 
 func contains(slice []string, item string) bool {
