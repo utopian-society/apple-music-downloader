@@ -53,7 +53,9 @@ var (
 	Config         structs.ConfigSet
 	counter        structs.Counter
 	okDict         = make(map[string][]int)
-	countryNames   = map[string]string{
+	// Shared HTTP client with optimized settings for lower resource usage
+	httpClient   *http.Client
+	countryNames = map[string]string{
 		"ae": "UAE",
 		"ag": "Antigua and Barbuda",
 		"ai": "Anguilla",
@@ -1404,7 +1406,7 @@ func ripStation(albumId string, token string, storefront string, mediaUserToken 
 	for i := 0; i < trackTotal; i++ {
 		arr[i] = i + 1
 	}
-	var selected []int
+	selected := make([]int, 0, trackTotal)
 
 	if true {
 		selected = arr
@@ -1721,7 +1723,7 @@ func ripAlbum(albumId string, token string, storefront string, mediaUserToken st
 		}
 		return nil
 	}
-	var selected []int
+	selected := make([]int, 0, trackTotal)
 	if !dl_select {
 		selected = arr
 	} else {
@@ -1974,7 +1976,7 @@ func ripPlaylist(playlistId string, token string, storefront string, mediaUserTo
 	for i := 0; i < trackTotal; i++ {
 		arr[i] = i + 1
 	}
-	var selected []int
+	selected := make([]int, 0, trackTotal)
 
 	if !dl_select {
 		selected = arr
@@ -2305,6 +2307,19 @@ func main() {
 		fmt.Printf("load Config failed: %v", err)
 		return
 	}
+
+	// Initialize shared HTTP client with optimized settings for lower resource usage
+	httpClient = &http.Client{
+		Timeout: 60 * time.Second,
+		Transport: &http.Transport{
+			MaxIdleConns:        50, // Reduced from default 100
+			MaxIdleConnsPerHost: 5,  // Reduced from default 2
+			IdleConnTimeout:     30 * time.Second,
+			DisableCompression:  false,
+			DisableKeepAlives:   false,
+		},
+	}
+
 	token, err := ampapi.GetToken()
 	if err != nil {
 		if Config.AuthorizationToken != "" && Config.AuthorizationToken != "your-authorization-token" {
@@ -2593,7 +2608,9 @@ func extractMvAudio(c string) (string, error) {
 		return "", errors.New(resp.Status)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	// Limit m3u8 file size to 5MB
+	limitedReader := io.LimitReader(resp.Body, 5*1024*1024)
+	body, err := io.ReadAll(limitedReader)
 	if err != nil {
 		return "", err
 	}
@@ -2723,7 +2740,9 @@ func extractMedia(b string, more_mode bool) (string, string, error) {
 	if resp.StatusCode != http.StatusOK {
 		return "", "", errors.New(resp.Status)
 	}
-	body, err := io.ReadAll(resp.Body)
+	// Limit m3u8 file size to 5MB
+	limitedReader := io.LimitReader(resp.Body, 5*1024*1024)
+	body, err := io.ReadAll(limitedReader)
 	if err != nil {
 		return "", "", err
 	}
@@ -2928,7 +2947,9 @@ func extractVideo(c string) (string, error) {
 		return "", errors.New(resp.Status)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	// Limit m3u8 file size to 5MB
+	limitedReader := io.LimitReader(resp.Body, 5*1024*1024)
+	body, err := io.ReadAll(limitedReader)
 	if err != nil {
 		return "", err
 	}

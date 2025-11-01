@@ -91,8 +91,8 @@ func (a *Playlist) ShowSelect() []int {
 	for i := 0; i < trackTotal; i++ {
 		arr[i] = i + 1
 	}
-	selected := []int{}
-	var data [][]string
+	selected := make([]int, 0, trackTotal)
+	data := make([][]string, 0, trackTotal)
 	for trackNum, track := range meta.Data[0].Relationships.Tracks.Data {
 		trackNum++
 		trackName := fmt.Sprintf("%s - %s", track.Attributes.Name, track.Attributes.ArtistName)

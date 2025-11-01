@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/go-resty/resty/v2"
 	"google.golang.org/protobuf/proto"
@@ -180,7 +181,9 @@ func extractKidBase64(b string, mvmode bool) (string, string, string, error) {
 	if resp.StatusCode != http.StatusOK {
 		return "", "", "", errors.New(resp.Status)
 	}
-	body, err := io.ReadAll(resp.Body)
+	// Limit read to 10MB to prevent excessive memory usage
+	limitedReader := io.LimitReader(resp.Body, 10*1024*1024)
+	body, err := io.ReadAll(limitedReader)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -369,7 +372,9 @@ func downloadSegment(url string, index int, wg *sync.WaitGroup, segmentsChan cha
 		return
 	}
 
-	data, err := io.ReadAll(resp.Body)
+	// Limit segment size to 50MB to prevent excessive memory usage
+	limitedReader := io.LimitReader(resp.Body, 50*1024*1024)
+	data, err := io.ReadAll(limitedReader)
 	if err != nil {
 		fmt.Printf("错误(分段 %d): 读取数据失败: %v\n", index, err)
 		return
@@ -385,7 +390,8 @@ func fileWriter(wg *sync.WaitGroup, segmentsChan <-chan Segment, outputFile io.W
 
 	// 缓冲区，用于存放乱序到达的分段
 	// key 是分段序号，value 是分段数据
-	segmentBuffer := make(map[int][]byte)
+	// Pre-allocate with small capacity to reduce memory overhead
+	segmentBuffer := make(map[int][]byte, 10)
 	nextIndex := 0 // 期望写入的下一个分段的序号
 
 	for segment := range segmentsChan {
@@ -441,12 +447,19 @@ func ExtMvData(keyAndUrls string, savePath string) error {
 	defer tempFile.Close()
 
 	var downloadWg, writerWg sync.WaitGroup
-	segmentsChan := make(chan Segment, len(urls))
+	// Reduce buffer size to lower memory usage - buffer only needs to hold segments being processed
+	bufferSize := 20
+	if len(urls) < bufferSize {
+		bufferSize = len(urls)
+	}
+	segmentsChan := make(chan Segment, bufferSize)
 	// --- 新增代码: 定义最大并发数 ---
-	const maxConcurrency = 10
+	const maxConcurrency = 5 // Reduced from 10 to lower system resource usage
 	// --- 新增代码: 创建带缓冲的 Channel 作为信号量 ---
 	limiter := make(chan struct{}, maxConcurrency)
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 30 * time.Second, // Add timeout to prevent hanging connections
+	}
 
 	// 初始化进度条
 	bar := progressbar.DefaultBytes(-1, "Downloading...")

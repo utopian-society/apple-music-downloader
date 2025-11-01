@@ -89,8 +89,8 @@ func (a *Album) ShowSelect() []int {
 	for i := 0; i < trackTotal; i++ {
 		arr[i] = i + 1
 	}
-	selected := []int{}
-	var data [][]string
+	selected := make([]int, 0, trackTotal)
+	data := make([][]string, 0, trackTotal)
 
 	// Check if album has multiple discs
 	hasMultipleDiscs := false
