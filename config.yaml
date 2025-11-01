@@ -47,7 +47,7 @@ use-songinfo-for-playlist: false
 dl-albumcover-for-playlist: false
 mv-audio-type: atmos  #atmos ac3 aac
 mv-max: 2160
-download-music-video: true  # Enable or disable downloading music videos
+download-music-video: true  # true = download music videos (more disk space; may require ffmpeg), false = skip
 # storefront will be used only in searching.
 # storefront is the 2-letter country code that are available in the urls (jp, ca, us etc.).
 # if your account is from Japan, you must use jp.
