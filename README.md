@@ -12,6 +12,7 @@ English / [简体中文](./README-CN.md)
 6. Add interactive search with arrow-key navigation `go run main.go --search [song/album/artist] "search_term"`
 7. **Batch download support** - Download multiple albums/playlists from text file(s) `go run main.go --batch urls.txt` or multiple files `go run main.go 1.txt 2.txt`
 8. **Disc folder separation** - Automatically organize multi-disc albums into separate disc folders (configurable via `separate-disc-folders` in config.yaml)
+9. **Music Video toggle** - Enable or disable music video downloads via `download-music-video` config option or `--dl-mv` flag
 
 ### Special thanks to `chocomint` for creating `agent-arm64.js`
 
@@ -108,4 +109,30 @@ Artist Name/
 ```
 
 **Note:** Single-disc albums are not affected by this setting and will continue to save tracks directly in the album folder.
+
+### Music Video Download Control
+
+You can now control whether music videos are downloaded using either the configuration file or command-line flag:
+
+- **Config file**: Set `download-music-video: true` or `download-music-video: false` in `config.yaml`
+- **Command-line**: Use `--dl-mv=true` or `--dl-mv=false` flag when running the program
+
+**Examples:**
+```bash
+# Disable music video downloads via command line
+go run main.go --dl-mv=false https://music.apple.com/us/album/example/123456
+
+# Enable music video downloads via command line (overrides config)
+go run main.go --dl-mv=true https://music.apple.com/us/album/example/123456
+```
+
+When music video download is disabled:
+- Music videos in albums, playlists, and stations will be skipped
+- Standalone music video URLs will be skipped
+- A message "Music video download is disabled, skipping" will be displayed
+
+**Note:** Music video downloads require:
+1. `download-music-video` to be enabled (true)
+2. A valid `media-user-token` in config.yaml
+3. [mp4decrypt](https://www.bento4.com/downloads/) installed and available in PATH
 

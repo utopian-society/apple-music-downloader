@@ -12,6 +12,7 @@
 6. 支持交互式搜索 `go run main.go --search [song/album/artist] "搜索词"`
 7. **批量下载支持** - 从文本文件批量下载多个专辑/播放列表 `go run main.go --batch urls.txt` 或多个文件 `go run main.go 1.txt 2.txt`
 8. **分盘文件夹** - 多碟专辑自动按光盘分文件夹组织（可通过 config.yaml 中的 `separate-disc-folders` 配置）
+9. **MV下载开关** - 通过配置文件 `download-music-video` 选项或 `--dl-mv` 命令行参数控制是否下载MV
 
 ### 特别感谢 `chocomint` 创建 `agent-arm64.js`
 对于获取`aac-lc` `MV` `歌词` 必须填入有订阅的`media-user-token`
@@ -91,4 +92,30 @@
 ```
 
 **注意：** 单碟专辑不受此设置影响，将继续直接在专辑文件夹中保存曲目。
+
+### MV下载控制
+
+您现在可以使用配置文件或命令行参数来控制是否下载MV：
+
+- **配置文件**：在 `config.yaml` 中设置 `download-music-video: true` 或 `download-music-video: false`
+- **命令行**：运行程序时使用 `--dl-mv=true` 或 `--dl-mv=false` 参数
+
+**示例：**
+```bash
+# 通过命令行禁用MV下载
+go run main.go --dl-mv=false https://music.apple.com/us/album/example/123456
+
+# 通过命令行启用MV下载（覆盖配置文件设置）
+go run main.go --dl-mv=true https://music.apple.com/us/album/example/123456
+```
+
+当MV下载被禁用时：
+- 专辑、播放列表和电台中的MV将被跳过
+- 独立的MV URL将被跳过
+- 将显示消息"Music video download is disabled, skipping"（MV下载已禁用，跳过）
+
+**注意：** MV下载需要以下条件：
+1. `download-music-video` 已启用（设置为 true）
+2. config.yaml 中有有效的 `media-user-token`
+3. 已安装 [mp4decrypt](https://www.bento4.com/downloads/) 并添加到 PATH 环境变量
 
