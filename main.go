@@ -1231,14 +1231,27 @@ func ripStation(albumId string, token string, storefront string, mediaUserToken 
 			singerFoldername = strings.ReplaceAll(singerFoldername, ".", "")
 		}
 		singerFoldername = strings.TrimSpace(singerFoldername)
-		fmt.Println(singerFoldername)
+		if singerFoldername != "" {
+			fmt.Println(singerFoldername)
+		}
 	}
-	singerFolder := filepath.Join(Config.AlacSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
-	if dl_atmos {
-		singerFolder = filepath.Join(Config.AtmosSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
-	}
-	if dl_aac {
-		singerFolder = filepath.Join(Config.AacSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
+	var singerFolder string
+	if singerFoldername != "" {
+		if dl_atmos {
+			singerFolder = filepath.Join(Config.AtmosSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
+		} else if dl_aac {
+			singerFolder = filepath.Join(Config.AacSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
+		} else {
+			singerFolder = filepath.Join(Config.AlacSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
+		}
+	} else {
+		if dl_atmos {
+			singerFolder = Config.AtmosSaveFolder
+		} else if dl_aac {
+			singerFolder = Config.AacSaveFolder
+		} else {
+			singerFolder = Config.AlacSaveFolder
+		}
 	}
 	os.MkdirAll(singerFolder, os.ModePerm)
 	station.SaveDir = singerFolder
@@ -1464,14 +1477,27 @@ func ripAlbum(albumId string, token string, storefront string, mediaUserToken st
 			singerFoldername = strings.ReplaceAll(singerFoldername, ".", "")
 		}
 		singerFoldername = strings.TrimSpace(singerFoldername)
-		fmt.Println(singerFoldername)
+		if singerFoldername != "" {
+			fmt.Println(singerFoldername)
+		}
 	}
-	singerFolder := filepath.Join(Config.AlacSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
-	if dl_atmos {
-		singerFolder = filepath.Join(Config.AtmosSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
-	}
-	if dl_aac {
-		singerFolder = filepath.Join(Config.AacSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
+	var singerFolder string
+	if singerFoldername != "" {
+		if dl_atmos {
+			singerFolder = filepath.Join(Config.AtmosSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
+		} else if dl_aac {
+			singerFolder = filepath.Join(Config.AacSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
+		} else {
+			singerFolder = filepath.Join(Config.AlacSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
+		}
+	} else {
+		if dl_atmos {
+			singerFolder = Config.AtmosSaveFolder
+		} else if dl_aac {
+			singerFolder = Config.AacSaveFolder
+		} else {
+			singerFolder = Config.AlacSaveFolder
+		}
 	}
 	os.MkdirAll(singerFolder, os.ModePerm)
 	album.SaveDir = singerFolder
@@ -1729,14 +1755,27 @@ func ripPlaylist(playlistId string, token string, storefront string, mediaUserTo
 			singerFoldername = strings.ReplaceAll(singerFoldername, ".", "")
 		}
 		singerFoldername = strings.TrimSpace(singerFoldername)
-		fmt.Println(singerFoldername)
+		if singerFoldername != "" {
+			fmt.Println(singerFoldername)
+		}
 	}
-	singerFolder := filepath.Join(Config.AlacSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
-	if dl_atmos {
-		singerFolder = filepath.Join(Config.AtmosSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
-	}
-	if dl_aac {
-		singerFolder = filepath.Join(Config.AacSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
+	var singerFolder string
+	if singerFoldername != "" {
+		if dl_atmos {
+			singerFolder = filepath.Join(Config.AtmosSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
+		} else if dl_aac {
+			singerFolder = filepath.Join(Config.AacSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
+		} else {
+			singerFolder = filepath.Join(Config.AlacSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
+		}
+	} else {
+		if dl_atmos {
+			singerFolder = Config.AtmosSaveFolder
+		} else if dl_aac {
+			singerFolder = Config.AacSaveFolder
+		} else {
+			singerFolder = Config.AlacSaveFolder
+		}
 	}
 	os.MkdirAll(singerFolder, os.ModePerm)
 	playlist.SaveDir = singerFolder
