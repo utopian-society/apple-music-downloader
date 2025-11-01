@@ -11,17 +11,18 @@ type Track struct {
 	Storefront string
 	Language   string
 
-	SaveDir    string
-	SaveName   string
-	SavePath   string
-	Codec      string
-	TaskNum    int
-	TaskTotal  int
-	M3u8       string
-	WebM3u8    string
-	DeviceM3u8 string
-	Quality    string
-	CoverPath  string
+	SaveDir         string
+	SaveName        string
+	SavePath        string
+	Codec           string
+	TaskNum         int
+	TaskTotal       int
+	DiscTrackNumber int // Track number within the disc (resets per disc)
+	M3u8            string
+	WebM3u8         string
+	DeviceM3u8      string
+	Quality         string
+	CoverPath       string
 
 	Resp         ampapi.TrackRespData
 	PreType      string // 上级类型 专辑或者歌单

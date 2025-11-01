@@ -1062,12 +1062,20 @@ func ripTrack(track *task.Track, token string, mediaUserToken string) {
 	}
 	Tag_string := strings.Join(stringsToJoin, " ")
 
+	// Use DiscTrackNumber if available (for per-disc numbering), otherwise use defaults
+	trackNumberToUse := track.Resp.Attributes.TrackNumber
+	songNumerToUse := track.TaskNum
+	if track.DiscTrackNumber > 0 {
+		trackNumberToUse = track.DiscTrackNumber
+		songNumerToUse = track.DiscTrackNumber
+	}
+
 	songName := strings.NewReplacer(
 		"{SongId}", track.ID,
-		"{SongNumer}", fmt.Sprintf("%02d", track.TaskNum),
+		"{SongNumer}", fmt.Sprintf("%02d", songNumerToUse),
 		"{SongName}", LimitString(track.Resp.Attributes.Name),
 		"{DiscNumber}", fmt.Sprintf("%0d", track.Resp.Attributes.DiscNumber),
-		"{TrackNumber}", fmt.Sprintf("%0d", track.Resp.Attributes.TrackNumber),
+		"{TrackNumber}", fmt.Sprintf("%0d", trackNumberToUse),
 		"{Quality}", Quality,
 		"{Tag}", Tag_string,
 		"{Codec}", track.Codec,
@@ -1654,6 +1662,17 @@ func ripAlbum(albumId string, token string, storefront string, mediaUserToken st
 		hasMultipleDiscs = true
 	}
 
+	// Calculate per-disc track numbers
+	discTrackCounters := make(map[int]int)
+	for i := range album.Tracks {
+		discNumber := album.Tracks[i].Resp.Attributes.DiscNumber
+		if discNumber == 0 {
+			discNumber = 1
+		}
+		discTrackCounters[discNumber]++
+		album.Tracks[i].DiscTrackNumber = discTrackCounters[discNumber]
+	}
+
 	// Set SaveDir, CoverPath, and Codec for each track
 	for i := range album.Tracks {
 		album.Tracks[i].CoverPath = covPath
@@ -1669,12 +1688,6 @@ func ripAlbum(albumId string, token string, storefront string, mediaUserToken st
 			discFolderPath := filepath.Join(albumFolderPath, discFolderName)
 			os.MkdirAll(discFolderPath, os.ModePerm)
 			album.Tracks[i].SaveDir = discFolderPath
-
-			// Copy cover to disc folder
-			discCovPath, err := writeCover(discFolderPath, "cover", meta.Data[0].Attributes.Artwork.URL)
-			if err == nil {
-				album.Tracks[i].CoverPath = discCovPath
-			}
 		} else {
 			album.Tracks[i].SaveDir = albumFolderPath
 		}
