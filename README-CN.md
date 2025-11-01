@@ -10,7 +10,7 @@
 4. 下载解密部分更换为Sendy McSenderson的代码，实现边下载边解密,解决大文件解密时内存不足
 5. MV下载，需要安装[mp4decrypt](https://www.bento4.com/downloads/)
 6. 支持交互式搜索 `go run main.go --search [song/album/artist] "搜索词"`
-7. **批量下载支持** - 从文本文件批量下载多个专辑/播放列表 `go run main.go --batch urls.txt`
+7. **批量下载支持** - 从文本文件批量下载多个专辑/播放列表 `go run main.go --batch urls.txt` 或多个文件 `go run main.go 1.txt 2.txt`
 8. **分盘文件夹** - 多碟专辑自动按光盘分文件夹组织（可通过 config.yaml 中的 `separate-disc-folders` 配置）
 
 ### 特别感谢 `chocomint` 创建 `agent-arm64.js`
@@ -37,7 +37,12 @@
 6. 对于杜比全景声 (Dolby Atmos)：`go run main.go --atmos https://music.apple.com/us/album/1989-taylors-version-deluxe/1713845538`。
 7. 对于 AAC (AAC)：`go run main.go --aac https://music.apple.com/us/album/1989-taylors-version-deluxe/1713845538`。
 8. 要查看音质：`go run main.go --debug https://music.apple.com/us/album/1989-taylors-version-deluxe/1713845538`。
-9. **批量下载**：`go run main.go --batch urls.txt`（创建一个文本文件，每行一个 Apple Music URL。格式参考 `batch_example.txt`）。
+9. **批量下载**：
+   - 单个文件：`go run main.go --batch urls.txt`
+   - 多个文件：`go run main.go 1.txt 2.txt 3.txt`
+   - 或者：`go run main.go --batch file1.txt --batch file2.txt`
+   
+   （创建文本文件，每行一个 Apple Music URL。格式参考 `batch_example.txt`）。
 
 [中文教程-详见方法三](https://telegra.ph/Apple-Music-Alac高解析度无损音乐下载教程-04-02-2)
 
@@ -50,6 +55,18 @@
 5. 正常启动脚本
 
 ## 配置选项
+
+### 多批量文件下载
+
+下载器支持一次处理多个批量文件：
+
+- **单个文件**：`go run main.go --batch urls.txt`
+- **多个文件（自动识别）**：`go run main.go 1.txt 2.txt 3.txt`
+- **多个文件（显式指定）**：`go run main.go --batch file1.txt --batch file2.txt`
+
+当您将 `.txt` 文件作为参数传递时，它们会自动被识别为批量文件。所有文件中的 URL 将被合并并按顺序处理。
+
+**注意：** 所有下载都按顺序处理（一次一个），以确保稳定性和正确的文件处理。
 
 ### 多碟专辑组织
 

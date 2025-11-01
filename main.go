@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"main/utils/ampapi"
@@ -1062,12 +1063,17 @@ func ripTrack(track *task.Track, token string, mediaUserToken string) {
 	}
 	Tag_string := strings.Join(stringsToJoin, " ")
 
-	// Use DiscTrackNumber if available (for per-disc numbering), otherwise use defaults
+	// Use DiscTrackNumber if available (for per-disc numbering in separate disc folders)
 	trackNumberToUse := track.Resp.Attributes.TrackNumber
 	songNumerToUse := track.TaskNum
-	if track.DiscTrackNumber > 0 {
+	if track.DiscTrackNumber > 0 && Config.SeparateDiscFolders {
+		// When using separate disc folders, use per-disc numbering
 		trackNumberToUse = track.DiscTrackNumber
 		songNumerToUse = track.DiscTrackNumber
+	} else if track.DiscTrackNumber > 0 {
+		// When not using separate folders, keep global numbering for SongNumer
+		// but use disc-specific for TrackNumber metadata
+		trackNumberToUse = track.DiscTrackNumber
 	}
 
 	songName := strings.NewReplacer(
@@ -2151,6 +2157,136 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 	return nil
 }
 
+// processURL processes a single URL (album, playlist, station, song, or music video)
+func processURL(urlRaw string, albumNum int, albumTotal int, token string, mutex *sync.Mutex) {
+	mutex.Lock()
+	fmt.Printf("Queue %d of %d: ", albumNum+1, albumTotal)
+	mutex.Unlock()
+
+	var storefront, albumId string
+
+	if strings.Contains(urlRaw, "/music-video/") {
+		mutex.Lock()
+		fmt.Println("Music Video")
+		mutex.Unlock()
+		if debug_mode {
+			return
+		}
+		mutex.Lock()
+		counter.Total++
+		mutex.Unlock()
+		if len(Config.MediaUserToken) <= 50 {
+			mutex.Lock()
+			fmt.Println(": meida-user-token is not set, skip MV dl")
+			counter.Success++
+			mutex.Unlock()
+			return
+		}
+		if _, err := exec.LookPath("mp4decrypt"); err != nil {
+			mutex.Lock()
+			fmt.Println(": mp4decrypt is not found, skip MV dl")
+			counter.Success++
+			mutex.Unlock()
+			return
+		}
+		mvSaveDir := strings.NewReplacer(
+			"{ArtistName}", "",
+			"{UrlArtistName}", "",
+			"{ArtistId}", "",
+		).Replace(Config.ArtistFolderFormat)
+		if mvSaveDir != "" {
+			mvSaveDir = filepath.Join(Config.AlacSaveFolder, forbiddenNames.ReplaceAllString(mvSaveDir, "_"))
+		} else {
+			mvSaveDir = Config.AlacSaveFolder
+		}
+		storefront, albumId = checkUrlMv(urlRaw)
+		err := mvDownloader(albumId, mvSaveDir, token, storefront, Config.MediaUserToken, nil)
+		if err != nil {
+			mutex.Lock()
+			fmt.Println("[WARNING] Failed to dl MV:", err)
+			counter.Error++
+			mutex.Unlock()
+			return
+		}
+		mutex.Lock()
+		counter.Success++
+		mutex.Unlock()
+		return
+	}
+	if strings.Contains(urlRaw, "/song/") {
+		mutex.Lock()
+		fmt.Printf("Song->")
+		mutex.Unlock()
+		storefront, songId := checkUrlSong(urlRaw)
+		if storefront == "" || songId == "" {
+			mutex.Lock()
+			fmt.Println("Invalid song URL format.")
+			mutex.Unlock()
+			return
+		}
+		err := ripSong(songId, token, storefront, Config.MediaUserToken)
+		if err != nil {
+			mutex.Lock()
+			fmt.Println("Failed to rip song:", err)
+			mutex.Unlock()
+		}
+		return
+	}
+	parse, err := url.Parse(urlRaw)
+	if err != nil {
+		mutex.Lock()
+		log.Printf("Invalid URL: %v", err)
+		mutex.Unlock()
+		return
+	}
+	var urlArg_i = parse.Query().Get("i")
+
+	if strings.Contains(urlRaw, "/album/") {
+		mutex.Lock()
+		fmt.Println("Album")
+		mutex.Unlock()
+		storefront, albumId = checkUrl(urlRaw)
+		err := ripAlbum(albumId, token, storefront, Config.MediaUserToken, urlArg_i)
+		if err != nil {
+			mutex.Lock()
+			fmt.Println("Failed to rip album:", err)
+			mutex.Unlock()
+		}
+	} else if strings.Contains(urlRaw, "/playlist/") {
+		mutex.Lock()
+		fmt.Println("Playlist")
+		mutex.Unlock()
+		storefront, albumId = checkUrlPlaylist(urlRaw)
+		err := ripPlaylist(albumId, token, storefront, Config.MediaUserToken)
+		if err != nil {
+			mutex.Lock()
+			fmt.Println("Failed to rip playlist:", err)
+			mutex.Unlock()
+		}
+	} else if strings.Contains(urlRaw, "/station/") {
+		mutex.Lock()
+		fmt.Printf("Station")
+		mutex.Unlock()
+		storefront, albumId = checkUrlStation(urlRaw)
+		if len(Config.MediaUserToken) <= 50 {
+			mutex.Lock()
+			fmt.Println(": meida-user-token is not set, skip station dl")
+			mutex.Unlock()
+			return
+		}
+		err := ripStation(albumId, token, storefront, Config.MediaUserToken)
+		if err != nil {
+			mutex.Lock()
+			fmt.Println("Failed to rip station:", err)
+			mutex.Unlock()
+		}
+	} else {
+		mutex.Lock()
+		fmt.Println("Invalid type")
+		mutex.Unlock()
+	}
+}
+
 func main() {
 	err := loadConfig()
 	if err != nil {
@@ -2167,9 +2303,9 @@ func main() {
 		}
 	}
 	var search_type string
-	var batch_file string
+	var batch_files []string
 	pflag.StringVar(&search_type, "search", "", "Search for 'album', 'song', or 'artist'. Provide query after flags.")
-	pflag.StringVar(&batch_file, "batch", "", "Path to a TXT file containing album/playlist URLs (one per line)")
+	pflag.StringArrayVar(&batch_files, "batch", []string{}, "Path(s) to TXT file(s) containing album/playlist URLs (one per line). Can be specified multiple times.")
 	pflag.BoolVar(&dl_atmos, "atmos", false, "Enable atmos download mode")
 	pflag.BoolVar(&dl_aac, "aac", false, "Enable adm-aac download mode")
 	pflag.BoolVar(&dl_select, "select", false, "Enable selective download")
@@ -2185,7 +2321,8 @@ func main() {
 	pflag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] [url1 url2 ...]\n", "[main | main.exe | go run main.go]")
 		fmt.Fprintf(os.Stderr, "Search Usage: %s --search [album|song|artist] [query]\n", "[main | main.exe | go run main.go]")
-		fmt.Fprintf(os.Stderr, "Batch Usage: %s --batch [file.txt]\n", "[main | main.exe | go run main.go]")
+		fmt.Fprintf(os.Stderr, "Batch Usage: %s --batch file1.txt --batch file2.txt\n", "[main | main.exe | go run main.go]")
+		fmt.Fprintf(os.Stderr, "Batch Usage (multiple files): %s --batch file1.txt file2.txt file3.txt\n", "[main | main.exe | go run main.go]")
 		fmt.Println("\nOptions:")
 		pflag.PrintDefaults()
 	}
@@ -2199,15 +2336,36 @@ func main() {
 
 	args := pflag.Args()
 
-	if batch_file != "" {
-		// Batch file mode
-		urls, err := readUrlsFromFile(batch_file)
-		if err != nil {
-			fmt.Printf("Error reading batch file: %v\n", err)
-			return
+	// If --batch flag is not used but positional args look like batch files, treat them as such
+	if len(batch_files) == 0 && len(args) > 0 {
+		// Check if all args are .txt files (batch files)
+		allTxtFiles := true
+		for _, arg := range args {
+			if !strings.HasSuffix(strings.ToLower(arg), ".txt") {
+				allTxtFiles = false
+				break
+			}
 		}
-		fmt.Printf("Loaded %d URLs from batch file: %s\n", len(urls), batch_file)
-		os.Args = urls
+		if allTxtFiles {
+			batch_files = args
+			args = nil
+		}
+	}
+
+	if len(batch_files) > 0 {
+		// Batch file mode - process multiple batch files
+		var allUrls []string
+		for _, batch_file := range batch_files {
+			urls, err := readUrlsFromFile(batch_file)
+			if err != nil {
+				fmt.Printf("Error reading batch file %s: %v\n", batch_file, err)
+				return
+			}
+			fmt.Printf("Loaded %d URLs from batch file: %s\n", len(urls), batch_file)
+			allUrls = append(allUrls, urls...)
+		}
+		fmt.Printf("Total URLs from %d batch file(s): %d\n", len(batch_files), len(allUrls))
+		os.Args = allUrls
 	} else if search_type != "" {
 		if len(args) == 0 {
 			fmt.Println("Error: --search flag requires a query.")
@@ -2255,94 +2413,12 @@ func main() {
 		os.Args = append(albumArgs, mvArgs...)
 	}
 	albumTotal := len(os.Args)
+
 	for {
+		// Single-threaded processing
+		var mutex sync.Mutex
 		for albumNum, urlRaw := range os.Args {
-			fmt.Printf("Queue %d of %d: ", albumNum+1, albumTotal)
-			var storefront, albumId string
-
-			if strings.Contains(urlRaw, "/music-video/") {
-				fmt.Println("Music Video")
-				if debug_mode {
-					continue
-				}
-				counter.Total++
-				if len(Config.MediaUserToken) <= 50 {
-					fmt.Println(": meida-user-token is not set, skip MV dl")
-					counter.Success++
-					continue
-				}
-				if _, err := exec.LookPath("mp4decrypt"); err != nil {
-					fmt.Println(": mp4decrypt is not found, skip MV dl")
-					counter.Success++
-					continue
-				}
-				mvSaveDir := strings.NewReplacer(
-					"{ArtistName}", "",
-					"{UrlArtistName}", "",
-					"{ArtistId}", "",
-				).Replace(Config.ArtistFolderFormat)
-				if mvSaveDir != "" {
-					mvSaveDir = filepath.Join(Config.AlacSaveFolder, forbiddenNames.ReplaceAllString(mvSaveDir, "_"))
-				} else {
-					mvSaveDir = Config.AlacSaveFolder
-				}
-				storefront, albumId = checkUrlMv(urlRaw)
-				err := mvDownloader(albumId, mvSaveDir, token, storefront, Config.MediaUserToken, nil)
-				if err != nil {
-					fmt.Println("[WARNING] Failed to dl MV:", err)
-					counter.Error++
-					continue
-				}
-				counter.Success++
-				continue
-			}
-			if strings.Contains(urlRaw, "/song/") {
-				fmt.Printf("Song->")
-				storefront, songId := checkUrlSong(urlRaw)
-				if storefront == "" || songId == "" {
-					fmt.Println("Invalid song URL format.")
-					continue
-				}
-				err := ripSong(songId, token, storefront, Config.MediaUserToken)
-				if err != nil {
-					fmt.Println("Failed to rip song:", err)
-				}
-				continue
-			}
-			parse, err := url.Parse(urlRaw)
-			if err != nil {
-				log.Fatalf("Invalid URL: %v", err)
-			}
-			var urlArg_i = parse.Query().Get("i")
-
-			if strings.Contains(urlRaw, "/album/") {
-				fmt.Println("Album")
-				storefront, albumId = checkUrl(urlRaw)
-				err := ripAlbum(albumId, token, storefront, Config.MediaUserToken, urlArg_i)
-				if err != nil {
-					fmt.Println("Failed to rip album:", err)
-				}
-			} else if strings.Contains(urlRaw, "/playlist/") {
-				fmt.Println("Playlist")
-				storefront, albumId = checkUrlPlaylist(urlRaw)
-				err := ripPlaylist(albumId, token, storefront, Config.MediaUserToken)
-				if err != nil {
-					fmt.Println("Failed to rip playlist:", err)
-				}
-			} else if strings.Contains(urlRaw, "/station/") {
-				fmt.Printf("Station")
-				storefront, albumId = checkUrlStation(urlRaw)
-				if len(Config.MediaUserToken) <= 50 {
-					fmt.Println(": meida-user-token is not set, skip station dl")
-					continue
-				}
-				err := ripStation(albumId, token, storefront, Config.MediaUserToken)
-				if err != nil {
-					fmt.Println("Failed to rip station:", err)
-				}
-			} else {
-				fmt.Println("Invalid type")
-			}
+			processURL(urlRaw, albumNum, albumTotal, token, &mutex)
 		}
 		fmt.Printf("=======  [OK] Completed: %d/%d  |  [WARNING] Warnings: %d  |  [ERROR] Errors: %d  =======\n", counter.Success, counter.Total, counter.Unavailable+counter.NotSong, counter.Error)
 		if counter.Error == 0 {
