@@ -99,11 +99,11 @@ Artist Name/
 └── Album Name [ALAC]/
     ├── cover.jpg
     ├── Disc 1/
-    │   ├── cover.jpg
+    │   |
     │   ├── 01. Song Title.m4a
     │   └── 02. Song Title.m4a
     └── Disc 2/
-        ├── cover.jpg
+        |
         ├── 01. Song Title.m4a
         └── 02. Song Title.m4a
 ```
