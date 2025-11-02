@@ -2348,27 +2348,18 @@ func mvDownloader(adamID string, saveDir string, token string, storefront string
 
 	tagsString := strings.Join(tags, ":")
 
-	// First, create the basic muxed video
-	tempMvPath := mvOutPath + ".temp.mp4"
-	muxCmd := exec.Command("MP4Box", "-itags", tagsString, "-quiet", "-add", vidPath, "-add", audPath, "-keep-utc", "-new", tempMvPath)
-	fmt.Printf("MV Remuxing...")
-	if err := muxCmd.Run(); err != nil {
-		fmt.Printf("MV mux failed: %v\n", err)
-		return err
-	}
-	fmt.Printf("\rMV Remuxed.   \n")
-
-	// Check for and embed closed captions/subtitles
+	// Check for and extract closed captions/subtitles BEFORE muxing
+	// (because MP4Box muxing may not preserve EIA-608 closed captions)
 	tempSubtitlePath := filepath.Join(saveDir, fmt.Sprintf("%s_temp.srt", adamID))
-	subtitleEmbedded := false
+	subtitleExtracted := false
 
 	fmt.Printf("Checking for subtitles...")
 
-	// Check if video has embedded closed captions
-	hasCC, err := subtitle.HasClosedCaptions(tempMvPath, Config.FFmpegPath)
+	// Check if video has embedded closed captions (check vidPath, not tempMvPath)
+	hasCC, err := subtitle.HasClosedCaptions(vidPath, Config.FFmpegPath)
 	if err == nil && hasCC {
 		fmt.Printf("\rExtracting closed captions...")
-		err = subtitle.ExtractClosedCaptionsFromMP4(tempMvPath, tempSubtitlePath, Config.FFmpegPath)
+		err = subtitle.ExtractClosedCaptionsFromMP4(vidPath, tempSubtitlePath, Config.FFmpegPath)
 		if err != nil {
 			fmt.Printf("\r[INFO] Could not extract closed captions: %v\n", err)
 		} else {
@@ -2377,38 +2368,73 @@ func mvDownloader(adamID string, saveDir string, token string, storefront string
 			if err != nil {
 				fmt.Printf("\r[WARNING] Subtitle cleaning failed: %v\n", err)
 			}
-
-			// Now embed the cleaned subtitle back into the video
-			fmt.Printf("\rEmbedding subtitles...")
-			embedCmd := exec.Command("MP4Box",
-				"-add", fmt.Sprintf("%s:lang=en:name=English:group=2:hdlr=sbtl", tempSubtitlePath),
-				"-quiet",
-				tempMvPath,
-				"-out", mvOutPath)
-
-			if err := embedCmd.Run(); err != nil {
-				fmt.Printf("\r[WARNING] Could not embed subtitles: %v\n", err)
-				// If embedding fails, just rename temp file to final
-				os.Rename(tempMvPath, mvOutPath)
-			} else {
-				fmt.Printf("\r✓ Subtitles embedded successfully\n")
-				subtitleEmbedded = true
-				os.Remove(tempMvPath)
-			}
-
-			// Clean up temp subtitle file
-			os.Remove(tempSubtitlePath)
+			subtitleExtracted = true
+			fmt.Printf("\r✓ Closed captions extracted successfully\n")
 		}
 	} else {
 		fmt.Printf("\r[INFO] No embedded subtitles found in this video\n")
 	}
 
-	// If no subtitle was embedded, just rename temp to final
-	if !subtitleEmbedded {
-		tempExists, _ := fileExists(tempMvPath)
-		if tempExists {
-			os.Rename(tempMvPath, mvOutPath)
+	// Remove EIA-608 closed captions from video file if they exist
+	// (EIA-608 captions are embedded in the video stream, so we need to strip them)
+	vidPathClean := vidPath
+	if hasCC {
+		fmt.Printf("Removing EIA-608 closed captions from video...")
+		vidPathClean = filepath.Join(saveDir, fmt.Sprintf("%s_vid_nocc.mp4", adamID))
+		stripCmd := exec.Command(Config.FFmpegPath,
+			"-i", vidPath,
+			"-c:v", "copy", // Copy video stream without re-encoding
+			"-bsf:v", "filter_units=remove_types=6", // Remove SEI NAL units that contain closed captions
+			"-an", // No audio
+			"-y",
+			vidPathClean)
+
+		if err := stripCmd.Run(); err != nil {
+			fmt.Printf("\r[WARNING] Failed to remove EIA-608 captions: %v\n", err)
+			fmt.Printf("Will use original video file.\n")
+			vidPathClean = vidPath // Fallback to original
+		} else {
+			fmt.Printf("\r✓ EIA-608 captions removed from video\n")
+			defer os.Remove(vidPathClean) // Clean up the temp file
 		}
+	}
+
+	// Now create the muxed video with or without subtitles
+	if subtitleExtracted {
+		// Mux video (without captions), audio, and SRT subtitles together
+		fmt.Printf("MV Remuxing with subtitles...")
+		muxCmd := exec.Command("MP4Box", "-itags", tagsString, "-quiet",
+			"-add", vidPathClean,
+			"-add", audPath,
+			"-add", fmt.Sprintf("%s:lang=en:name=English:group=2:hdlr=sbtl", tempSubtitlePath),
+			"-keep-utc", "-new", mvOutPath)
+
+		if err := muxCmd.Run(); err != nil {
+			fmt.Printf("\r[WARNING] MV mux with subtitles failed: %v\n", err)
+			fmt.Printf("Retrying without subtitles...\n")
+			// Fallback: mux without subtitles
+			muxCmd = exec.Command("MP4Box", "-itags", tagsString, "-quiet",
+				"-add", vidPathClean,
+				"-add", audPath, "-keep-utc", "-new", mvOutPath)
+			if err := muxCmd.Run(); err != nil {
+				fmt.Printf("MV mux failed: %v\n", err)
+				return err
+			}
+		}
+		fmt.Printf("\r✓ MV Remuxed with subtitles\n")
+		// Clean up temp subtitle file
+		os.Remove(tempSubtitlePath)
+	} else {
+		// Mux video and audio only
+		fmt.Printf("MV Remuxing...")
+		muxCmd := exec.Command("MP4Box", "-itags", tagsString, "-quiet",
+			"-add", vidPathClean,
+			"-add", audPath, "-keep-utc", "-new", mvOutPath)
+		if err := muxCmd.Run(); err != nil {
+			fmt.Printf("MV mux failed: %v\n", err)
+			return err
+		}
+		fmt.Printf("\rMV Remuxed.   \n")
 	}
 
 	return nil
