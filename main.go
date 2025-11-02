@@ -2394,7 +2394,7 @@ func mvDownloader(adamID string, saveDir string, token string, storefront string
 			fmt.Printf("Will use original video file.\n")
 			vidPathClean = vidPath // Fallback to original
 		} else {
-			fmt.Printf("\r✓ EIA-608 captions removed from video\n")
+			fmt.Printf("\r✓ EIA-608 captions removed successfully       \n")
 			defer os.Remove(vidPathClean) // Clean up the temp file
 		}
 	}
