@@ -27,6 +27,7 @@ import (
 	"main/utils/runv2"
 	"main/utils/runv3"
 	"main/utils/structs"
+	"main/utils/subtitle"
 	"main/utils/task"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -2111,7 +2112,7 @@ func main() {
 
 	pflag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] [url1 url2 ...]\n", "[main | main.exe | go run main.go]")
-		fmt.Fprintf(os.Stderr, "Search Usage: %s --search [album|song|artist] [query]\n", "[main | main.exe | go run main.go]")
+		fmt.Fprintf(os.Stderr, "Search Usage: %s --search [album|song|artist|music-video] [query]\n", "[main | main.exe | go run main.go]")
 		fmt.Fprintf(os.Stderr, "Batch Usage: %s --batch file1.txt --batch file2.txt\n", "[main | main.exe | go run main.go]")
 		fmt.Fprintf(os.Stderr, "Batch Usage (multiple files): %s --batch file1.txt file2.txt file3.txt\n", "[main | main.exe | go run main.go]")
 		fmt.Println("\nOptions:")
@@ -2346,13 +2347,70 @@ func mvDownloader(adamID string, saveDir string, token string, storefront string
 	defer os.Remove(covPath)
 
 	tagsString := strings.Join(tags, ":")
-	muxCmd := exec.Command("MP4Box", "-itags", tagsString, "-quiet", "-add", vidPath, "-add", audPath, "-keep-utc", "-new", mvOutPath)
+
+	// First, create the basic muxed video
+	tempMvPath := mvOutPath + ".temp.mp4"
+	muxCmd := exec.Command("MP4Box", "-itags", tagsString, "-quiet", "-add", vidPath, "-add", audPath, "-keep-utc", "-new", tempMvPath)
 	fmt.Printf("MV Remuxing...")
 	if err := muxCmd.Run(); err != nil {
 		fmt.Printf("MV mux failed: %v\n", err)
 		return err
 	}
 	fmt.Printf("\rMV Remuxed.   \n")
+
+	// Check for and embed closed captions/subtitles
+	tempSubtitlePath := filepath.Join(saveDir, fmt.Sprintf("%s_temp.srt", adamID))
+	subtitleEmbedded := false
+
+	fmt.Printf("Checking for subtitles...")
+
+	// Check if video has embedded closed captions
+	hasCC, err := subtitle.HasClosedCaptions(tempMvPath, Config.FFmpegPath)
+	if err == nil && hasCC {
+		fmt.Printf("\rExtracting closed captions...")
+		err = subtitle.ExtractClosedCaptionsFromMP4(tempMvPath, tempSubtitlePath, Config.FFmpegPath)
+		if err != nil {
+			fmt.Printf("\r[INFO] Could not extract closed captions: %v\n", err)
+		} else {
+			// Clean up the extracted subtitles (remove formatting tags, duplicates)
+			err = subtitle.CleanSRTFile(tempSubtitlePath)
+			if err != nil {
+				fmt.Printf("\r[WARNING] Subtitle cleaning failed: %v\n", err)
+			}
+
+			// Now embed the cleaned subtitle back into the video
+			fmt.Printf("\rEmbedding subtitles...")
+			embedCmd := exec.Command("MP4Box",
+				"-add", fmt.Sprintf("%s:lang=en:name=English:group=2:hdlr=sbtl", tempSubtitlePath),
+				"-quiet",
+				tempMvPath,
+				"-out", mvOutPath)
+
+			if err := embedCmd.Run(); err != nil {
+				fmt.Printf("\r[WARNING] Could not embed subtitles: %v\n", err)
+				// If embedding fails, just rename temp file to final
+				os.Rename(tempMvPath, mvOutPath)
+			} else {
+				fmt.Printf("\r✓ Subtitles embedded successfully\n")
+				subtitleEmbedded = true
+				os.Remove(tempMvPath)
+			}
+
+			// Clean up temp subtitle file
+			os.Remove(tempSubtitlePath)
+		}
+	} else {
+		fmt.Printf("\r[INFO] No embedded subtitles found in this video\n")
+	}
+
+	// If no subtitle was embedded, just rename temp to final
+	if !subtitleEmbedded {
+		tempExists, _ := fileExists(tempMvPath)
+		if tempExists {
+			os.Rename(tempMvPath, mvOutPath)
+		}
+	}
+
 	return nil
 }
 
