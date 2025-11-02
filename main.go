@@ -1806,19 +1806,15 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 	}
 
 	t := &mp4tag.MP4Tags{
-		Title:        track.Resp.Attributes.Name,
-		TitleSort:    track.Resp.Attributes.Name,
-		Artist:       track.Resp.Attributes.ArtistName,
-		ArtistSort:   track.Resp.Attributes.ArtistName,
-		Custom:       customTags,
-		Composer:     track.Resp.Attributes.ComposerName,
-		ComposerSort: track.Resp.Attributes.ComposerName,
-		CustomGenre:  track.Resp.Attributes.GenreNames[0],
-		Lyrics:       lrc,
-		TrackNumber:  int16(track.Resp.Attributes.TrackNumber),
-		DiscNumber:   int16(track.Resp.Attributes.DiscNumber),
-		Album:        track.Resp.Attributes.AlbumName,
-		AlbumSort:    track.Resp.Attributes.AlbumName,
+		Title:       track.Resp.Attributes.Name,
+		Artist:      track.Resp.Attributes.ArtistName,
+		Custom:      customTags,
+		Composer:    track.Resp.Attributes.ComposerName,
+		CustomGenre: track.Resp.Attributes.GenreNames[0],
+		Lyrics:      lrc,
+		TrackNumber: int16(track.Resp.Attributes.TrackNumber),
+		DiscNumber:  int16(track.Resp.Attributes.DiscNumber),
+		Album:       track.Resp.Attributes.AlbumName,
 	}
 
 	// Add EditorialNotes as comment if available
@@ -1852,9 +1848,7 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.TrackNumber = int16(track.TaskNum)
 		t.TrackTotal = int16(track.TaskTotal)
 		t.Album = track.PlaylistData.Attributes.Name
-		t.AlbumSort = track.PlaylistData.Attributes.Name
 		t.AlbumArtist = track.PlaylistData.Attributes.ArtistName
-		t.AlbumArtistSort = track.PlaylistData.Attributes.ArtistName
 		// Add playlist editorial notes
 		if track.PlaylistData.Attributes.EditorialNotes.Standard != "" && t.Comment == "" {
 			reHTML := regexp.MustCompile("<[^>]*>")
@@ -1867,7 +1861,6 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.DiscTotal = int16(track.DiscTotal)
 		t.TrackTotal = int16(track.AlbumData.Attributes.TrackCount)
 		t.AlbumArtist = track.AlbumData.Attributes.ArtistName
-		t.AlbumArtistSort = track.AlbumData.Attributes.ArtistName
 		t.Custom["UPC"] = track.AlbumData.Attributes.Upc
 		t.Custom["LABEL"] = track.AlbumData.Attributes.RecordLabel
 		// Update Vendor with label
@@ -1889,7 +1882,6 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.DiscTotal = int16(track.DiscTotal)
 		t.TrackTotal = int16(track.AlbumData.Attributes.TrackCount)
 		t.AlbumArtist = track.AlbumData.Attributes.ArtistName
-		t.AlbumArtistSort = track.AlbumData.Attributes.ArtistName
 		t.Custom["UPC"] = track.AlbumData.Attributes.Upc
 		t.Custom["LABEL"] = track.AlbumData.Attributes.RecordLabel
 		// Update Vendor with label

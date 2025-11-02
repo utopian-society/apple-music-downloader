@@ -306,18 +306,15 @@ func WriteMP4Tags(trackPath, lrc string, meta *ampapi.AlbumResp, trackNum, track
 	}
 
 	t := &mp4tag.MP4Tags{
-		Title:        meta.Data[0].Relationships.Tracks.Data[index].Attributes.Name,
-		TitleSort:    meta.Data[0].Relationships.Tracks.Data[index].Attributes.Name,
-		Artist:       meta.Data[0].Relationships.Tracks.Data[index].Attributes.ArtistName,
-		ArtistSort:   meta.Data[0].Relationships.Tracks.Data[index].Attributes.ArtistName,
-		Custom:       customTags,
-		Composer:     meta.Data[0].Relationships.Tracks.Data[index].Attributes.ComposerName,
-		ComposerSort: meta.Data[0].Relationships.Tracks.Data[index].Attributes.ComposerName,
-		Date:         meta.Data[0].Attributes.ReleaseDate,
-		CustomGenre:  meta.Data[0].Relationships.Tracks.Data[index].Attributes.GenreNames[0],
-		Copyright:    meta.Data[0].Attributes.Copyright,
-		Publisher:    meta.Data[0].Attributes.RecordLabel,
-		Lyrics:       lrc,
+		Title:       meta.Data[0].Relationships.Tracks.Data[index].Attributes.Name,
+		Artist:      meta.Data[0].Relationships.Tracks.Data[index].Attributes.ArtistName,
+		Custom:      customTags,
+		Composer:    meta.Data[0].Relationships.Tracks.Data[index].Attributes.ComposerName,
+		Date:        meta.Data[0].Attributes.ReleaseDate,
+		CustomGenre: meta.Data[0].Relationships.Tracks.Data[index].Attributes.GenreNames[0],
+		Copyright:   meta.Data[0].Attributes.Copyright,
+		Publisher:   meta.Data[0].Attributes.RecordLabel,
+		Lyrics:      lrc,
 	}
 
 	// Add EditorialNotes as comment if available
@@ -351,27 +348,21 @@ func WriteMP4Tags(trackPath, lrc string, meta *ampapi.AlbumResp, trackNum, track
 		t.TrackNumber = int16(trackNum)
 		t.TrackTotal = int16(trackTotal)
 		t.Album = meta.Data[0].Attributes.Name
-		t.AlbumSort = meta.Data[0].Attributes.Name
 		t.AlbumArtist = meta.Data[0].Attributes.ArtistName
-		t.AlbumArtistSort = meta.Data[0].Attributes.ArtistName
 	} else if strings.Contains(meta.Data[0].ID, "pl.") && config.UseSongInfoForPlaylist {
 		t.DiscNumber = int16(meta.Data[0].Relationships.Tracks.Data[index].Attributes.DiscNumber)
 		t.DiscTotal = int16(meta.Data[0].Relationships.Tracks.Data[trackTotal-1].Attributes.DiscNumber)
 		t.TrackNumber = int16(meta.Data[0].Relationships.Tracks.Data[index].Attributes.TrackNumber)
 		t.TrackTotal = int16(trackTotal)
 		t.Album = meta.Data[0].Relationships.Tracks.Data[index].Attributes.AlbumName
-		t.AlbumSort = meta.Data[0].Relationships.Tracks.Data[index].Attributes.AlbumName
 		t.AlbumArtist = meta.Data[0].Relationships.Tracks.Data[index].Relationships.Albums.Data[0].Attributes.ArtistName
-		t.AlbumArtistSort = meta.Data[0].Relationships.Tracks.Data[index].Relationships.Albums.Data[0].Attributes.ArtistName
 	} else {
 		t.DiscNumber = int16(meta.Data[0].Relationships.Tracks.Data[index].Attributes.DiscNumber)
 		t.DiscTotal = int16(meta.Data[0].Relationships.Tracks.Data[trackTotal-1].Attributes.DiscNumber)
 		t.TrackNumber = int16(meta.Data[0].Relationships.Tracks.Data[index].Attributes.TrackNumber)
 		t.TrackTotal = int16(trackTotal)
 		t.Album = meta.Data[0].Relationships.Tracks.Data[index].Attributes.AlbumName
-		t.AlbumSort = meta.Data[0].Relationships.Tracks.Data[index].Attributes.AlbumName
 		t.AlbumArtist = meta.Data[0].Attributes.ArtistName
-		t.AlbumArtistSort = meta.Data[0].Attributes.ArtistName
 	}
 
 	if meta.Data[0].Relationships.Tracks.Data[index].Attributes.ContentRating == "explicit" {
