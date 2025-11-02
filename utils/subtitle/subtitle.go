@@ -226,6 +226,53 @@ func DownloadSubtitle(subtitleURL string) (string, error) {
 	return string(body), nil
 }
 
+// extractTextFromTTMLElement recursively extracts text content from TTML element
+// This properly handles nested elements like <span>, <br/>, etc.
+func extractTextFromTTMLElement(elem *etree.Element) string {
+	var textParts []string
+
+	// Process all child nodes (text and elements)
+	for _, child := range elem.Child {
+		switch node := child.(type) {
+		case *etree.CharData:
+			// Direct text content
+			text := node.Data
+			// Remove escape sequences and special characters
+			text = strings.ReplaceAll(text, "\\h", "")
+			text = strings.ReplaceAll(text, "\\n", "\n")
+			text = strings.ReplaceAll(text, "\\t", " ")
+			text = strings.TrimSpace(text)
+			if text != "" {
+				textParts = append(textParts, text)
+			}
+		case *etree.Element:
+			// Handle break elements
+			if node.Tag == "br" {
+				textParts = append(textParts, "\n")
+			} else {
+				// Recursively get text from nested elements
+				text := extractTextFromTTMLElement(node)
+				if text != "" {
+					textParts = append(textParts, text)
+				}
+			}
+		}
+	}
+
+	result := strings.Join(textParts, " ")
+
+	// Remove any remaining escape sequences or special patterns
+	result = regexp.MustCompile(`\\[a-z]`).ReplaceAllString(result, "")
+
+	// Clean up multiple spaces and trim
+	result = regexp.MustCompile(`\s+`).ReplaceAllString(result, " ")
+	result = strings.ReplaceAll(result, " \n ", "\n")
+	result = strings.ReplaceAll(result, " \n", "\n")
+	result = strings.ReplaceAll(result, "\n ", "\n")
+
+	return strings.TrimSpace(result)
+}
+
 // TTMLToSRT converts TTML format to SRT format
 func TTMLToSRT(ttml string) (string, error) {
 	parsedTTML := etree.NewDocument()
@@ -256,7 +303,7 @@ func TTMLToSRT(ttml string) (string, error) {
 			continue
 		}
 
-		text := strings.TrimSpace(p.Text())
+		text := extractTextFromTTMLElement(p)
 		if text == "" {
 			continue
 		}
@@ -280,7 +327,12 @@ func TTMLToSRT(ttml string) (string, error) {
 	})
 
 	// Convert to SRT format
-	return convertToSRT(subtitles), nil
+	srt := convertToSRT(subtitles)
+
+	// Apply final cleaning to remove any remaining formatting tags
+	srt = string(removeFormattingTags([]byte(srt)))
+
+	return srt, nil
 }
 
 // WebVTTToSRT converts WebVTT format to SRT format
@@ -805,6 +857,13 @@ func removeFormattingTags(content []byte) []byte {
 
 	// Remove positioning cues like 'position:' and 'align:'
 	text = regexp.MustCompile(`(?m)^.*(?:position|align|line|size):[^\n]*\n`).ReplaceAllString(text, "")
+
+	// Remove escape sequences like \h, \n, \t (literal backslash followed by letter)
+	text = strings.ReplaceAll(text, "\\h", "")
+	text = regexp.MustCompile(`\\[a-z]`).ReplaceAllString(text, "")
+
+	// Remove patterns like /h/h/h that might appear
+	text = regexp.MustCompile(`(/[a-z])+`).ReplaceAllString(text, "")
 
 	return []byte(text)
 }
