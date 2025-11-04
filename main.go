@@ -743,7 +743,14 @@ func convertIfNeeded(track *task.Track) {
 func ripTrack(track *task.Track, token string, mediaUserToken string) {
 	var err error
 	counter.Total++
-	fmt.Printf("Track %d of %d: %s\n", track.TaskNum, track.TaskTotal, track.Type)
+	// Display track type in a more readable format
+	displayType := track.Type
+	if track.Type == "songs" {
+		displayType = "Song"
+	} else if track.Type == "music-videos" {
+		displayType = "Music Video"
+	}
+	fmt.Printf("Track %d of %d: %s\n", track.TaskNum, track.TaskTotal, displayType)
 
 	//提前获取到的播放列表下track所在的专辑信息
 	if track.PreType == "playlists" && Config.UseSongInfoForPlaylist {
@@ -2004,11 +2011,13 @@ func processURL(urlRaw string, albumNum int, albumTotal int, token string, mutex
 	if strings.Contains(urlRaw, "/song/") {
 		mutex.Lock()
 		fmt.Printf("Song->")
+		counter.Total++
 		mutex.Unlock()
 		storefront, songId := checkUrlSong(urlRaw)
 		if storefront == "" || songId == "" {
 			mutex.Lock()
 			fmt.Println("Invalid song URL format.")
+			counter.Error++
 			mutex.Unlock()
 			return
 		}
@@ -2016,6 +2025,7 @@ func processURL(urlRaw string, albumNum int, albumTotal int, token string, mutex
 		if err != nil {
 			mutex.Lock()
 			fmt.Println("Failed to rip song:", err)
+			counter.Error++
 			mutex.Unlock()
 		}
 		return
@@ -2869,6 +2879,9 @@ func ripSong(songId string, token string, storefront string, mediaUserToken stri
 	// Use album approach but only download the specific song
 	dl_song = true
 	err = ripAlbum(albumId, token, storefront, mediaUserToken, songId)
+	// Reset immediately after ripAlbum, before error check, to ensure it always resets
+	dl_song = false
+
 	if err != nil {
 		fmt.Println("Failed to rip song:", err)
 		return err
