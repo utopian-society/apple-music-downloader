@@ -1,5 +1,7 @@
 [English](./README.md) / 简体中文
 
+### 非 LTS 发行版的快速更新可能会破坏构建依赖（例如：缺少 libcurl4-openssl-dev、不兼容的 ffmpeg 头文件）。
+
 ### ！！必须先安装[MP4Box](https://gpac.io/downloads/gpac-nightly-builds/)，并确认[MP4Box](https://gpac.io/downloads/gpac-nightly-builds/)已正确添加到环境变量
 
 ### 添加功能
@@ -118,4 +120,3 @@ go run main.go --dl-mv=true https://music.apple.com/us/album/example/123456
 1. `download-music-video` 已启用（设置为 true）
 2. config.yaml 中有有效的 `media-user-token`
 3. 已安装 [mp4decrypt](https://www.bento4.com/downloads/) 并添加到 PATH 环境变量
-

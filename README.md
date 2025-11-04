@@ -1,5 +1,7 @@
 English / [简体中文](./README-CN.md)
 
+### Rapid updates in non-LTS releases can break build dependencies (e.g., missing libcurl4-openssl-dev, incompatible ffmpeg headers).
+
 ### ！！Must be installed first [MP4Box](https://gpac.io/downloads/gpac-nightly-builds/)，And confirm [MP4Box](https://gpac.io/downloads/gpac-nightly-builds/) Correctly added to environment variables
 
 ### Add features
@@ -46,7 +48,7 @@ Original script by Sorrow. Modified by me to include some fixes and improvements
    
    (Create text file(s) with one Apple Music URL per line. See `batch_example.txt` for format).
 
-[Chinese tutorial - see Method 3 for details](https://telegra.ph/Apple-Music-Alac高解析度无损音乐下载教程-04-02-2)
+[Chinese tutorial - see Method 3 for details](https://telegra.ph/Apple-Music-Alac高解析度无損音樂下載教程-04-02-2)
 
 ## Downloading lyrics
 
@@ -135,4 +137,3 @@ When music video download is disabled:
 1. `download-music-video` to be enabled (true)
 2. A valid `media-user-token` in config.yaml
 3. [mp4decrypt](https://www.bento4.com/downloads/) installed and available in PATH
-
