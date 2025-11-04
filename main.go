@@ -1433,6 +1433,7 @@ func ripAlbum(albumId string, token string, storefront string, mediaUserToken st
 			}
 		}
 	}
+
 	// Determine if we need to create disc folders
 	hasMultipleDiscs := false
 	maxDiscNumber := 1
@@ -1741,6 +1742,7 @@ func ripPlaylist(playlistId string, token string, storefront string, mediaUserTo
 			}
 		}
 	}
+
 	trackTotal := len(meta.Data[0].Relationships.Tracks.Data)
 	arr := make([]int, trackTotal)
 	for i := 0; i < trackTotal; i++ {
@@ -1875,13 +1877,23 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.Date = track.AlbumData.Attributes.ReleaseDate
 		t.Copyright = track.AlbumData.Attributes.Copyright
 		t.Publisher = track.AlbumData.Attributes.RecordLabel
-		// Add album editorial notes for playlists using song info
-		if track.AlbumData.Attributes.EditorialNotes.Standard != "" && t.Comment == "" {
-			reHTML := regexp.MustCompile("<[^>]*>")
-			textWithoutHTML := reHTML.ReplaceAllString(track.AlbumData.Attributes.EditorialNotes.Standard, "")
-			reNewlines := regexp.MustCompile(`\n{2,}`)
-			cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
-			t.Comment = strings.TrimSpace(cleanComment)
+		// Add playlist editorial notes first (preferred), then fall back to album editorial notes
+		if t.Comment == "" {
+			// Try playlist editorial notes first
+			if track.PlaylistData.Attributes.EditorialNotes.Standard != "" {
+				reHTML := regexp.MustCompile("<[^>]*>")
+				textWithoutHTML := reHTML.ReplaceAllString(track.PlaylistData.Attributes.EditorialNotes.Standard, "")
+				reNewlines := regexp.MustCompile(`\n{2,}`)
+				cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
+				t.Comment = strings.TrimSpace(cleanComment)
+			} else if track.AlbumData.Attributes.EditorialNotes.Standard != "" {
+				// Fall back to album editorial notes if playlist notes don't exist
+				reHTML := regexp.MustCompile("<[^>]*>")
+				textWithoutHTML := reHTML.ReplaceAllString(track.AlbumData.Attributes.EditorialNotes.Standard, "")
+				reNewlines := regexp.MustCompile(`\n{2,}`)
+				cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
+				t.Comment = strings.TrimSpace(cleanComment)
+			}
 		}
 	} else {
 		t.DiscTotal = int16(track.DiscTotal)
