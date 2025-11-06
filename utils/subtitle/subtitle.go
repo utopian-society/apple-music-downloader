@@ -631,8 +631,8 @@ func extractClosedCaptionsAlternative(videoPath, outputPath, ffmpegPath string) 
 
 	err := cmd.Run()
 	if err != nil {
-		// Try ccextractor if FFmpeg fails
-		return extractWithCCExtractor(videoPath, outputPath)
+		// Try additional FFmpeg methods without external dependencies
+		return extractWithFFmpegOnly(videoPath, outputPath, ffmpegPath)
 	}
 
 	// Check if output file was created and has content
@@ -644,31 +644,65 @@ func extractClosedCaptionsAlternative(videoPath, outputPath, ffmpegPath string) 
 	return nil
 }
 
-// extractWithCCExtractor uses CCExtractor tool if available
-func extractWithCCExtractor(videoPath, outputPath string) error {
-	// Check if ccextractor is available
-	cmd := exec.Command("ccextractor", "--version")
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("closed caption extraction failed and CCExtractor not found")
-	}
-
-	// Use CCExtractor to extract captions
-	cmd = exec.Command("ccextractor",
-		videoPath,
-		"-o", outputPath)
+// extractWithFFmpegOnly uses FFmpeg-only methods without external dependencies like CCExtractor
+func extractWithFFmpegOnly(videoPath, outputPath, ffmpegPath string) error {
+	// Method 1: Try extracting with text subtitles codec
+	cmd := exec.Command(ffmpegPath,
+		"-i", videoPath,
+		"-map", "0:s:0",
+		"-c:s", "text",
+		"-f", "srt",
+		"-y",
+		outputPath)
 
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
 	err := cmd.Run()
+	if err == nil {
+		if info, statErr := os.Stat(outputPath); statErr == nil && info.Size() > 0 {
+			return nil
+		}
+	}
+
+	// Method 2: Try extracting with data stream (for EIA-608/CEA-608)
+	cmd = exec.Command(ffmpegPath,
+		"-i", videoPath,
+		"-c:s", "mov_text",
+		"-f", "srt",
+		"-y",
+		outputPath)
+
+	stderr.Reset()
+	cmd.Stderr = &stderr
+
+	err = cmd.Run()
+	if err == nil {
+		if info, statErr := os.Stat(outputPath); statErr == nil && info.Size() > 0 {
+			return nil
+		}
+	}
+
+	// Method 3: Try extracting all available subtitle streams
+	cmd = exec.Command(ffmpegPath,
+		"-txt_format", "text",
+		"-i", videoPath,
+		"-map", "0:s?",
+		"-y",
+		outputPath)
+
+	stderr.Reset()
+	cmd.Stderr = &stderr
+
+	err = cmd.Run()
 	if err != nil {
-		return fmt.Errorf("CCExtractor failed: %v - %s", err, stderr.String())
+		return fmt.Errorf("closed caption extraction failed: no subtitle streams found in video")
 	}
 
 	// Check if output file was created and has content
 	info, err := os.Stat(outputPath)
 	if err != nil || info.Size() == 0 {
-		return fmt.Errorf("no closed captions extracted")
+		return fmt.Errorf("no closed captions found in video")
 	}
 
 	return nil

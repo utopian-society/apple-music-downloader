@@ -1,6 +1,5 @@
 English / [简体中文](./README-CN.md)
 
-### Rapid updates in non-LTS releases can break build dependencies (e.g., missing libcurl4-openssl-dev, incompatible ffmpeg headers).
 
 ### ！！Must be installed first [MP4Box](https://gpac.io/downloads/gpac-nightly-builds/)，And confirm [MP4Box](https://gpac.io/downloads/gpac-nightly-builds/) Correctly added to environment variables
 
