@@ -45,6 +45,7 @@ var (
 	dl_aac         bool
 	dl_select      bool
 	dl_song        bool
+	dl_mv          *bool
 	artist_select  bool
 	debug_mode     bool
 	alac_max       *int
@@ -2121,6 +2122,7 @@ func main() {
 	pflag.BoolVar(&dl_aac, "aac", false, "Enable adm-aac download mode")
 	pflag.BoolVar(&dl_select, "select", false, "Enable selective download")
 	pflag.BoolVar(&dl_song, "song", false, "Enable single song download mode")
+	dl_mv = pflag.Bool("dl-mv", Config.DownloadMusicVideo, "Enable music video download mode")
 	pflag.BoolVar(&artist_select, "all-album", false, "Download all artist albums")
 	pflag.BoolVar(&debug_mode, "debug", false, "Enable debug mode to show audio quality information")
 	alac_max = pflag.Int("alac-max", Config.AlacMax, "Specify the max quality for download alac")
@@ -2144,6 +2146,7 @@ func main() {
 	Config.AacType = *aac_type
 	Config.MVAudioType = *mv_audio_type
 	Config.MVMax = *mv_max
+	Config.DownloadMusicVideo = *dl_mv
 
 	args := pflag.Args()
 
