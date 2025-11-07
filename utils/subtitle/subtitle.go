@@ -972,38 +972,84 @@ func CleanSRTFile(filePath string) error {
 		return err
 	}
 
-	// Remove WebVTT/ASS formatting tags
-	content = removeFormattingTags(content)
-
 	lines := strings.Split(string(content), "\n")
 	var cleaned []string
 	var currentEntry []string
-	seenText := make(map[string]bool)
+	seenEntries := make(map[string]bool)
+	entryIndex := 1
 
 	for _, line := range lines {
-		line = strings.TrimSpace(line)
+		trimmedLine := strings.TrimSpace(line)
 
-		if line == "" && len(currentEntry) > 0 {
+		if trimmedLine == "" && len(currentEntry) > 0 {
 			// End of subtitle entry
-			if len(currentEntry) >= 3 {
-				text := strings.Join(currentEntry[2:], "\n")
-				if !seenText[text] {
-					seenText[text] = true
-					cleaned = append(cleaned, strings.Join(currentEntry, "\n"))
+			// Find the timestamp line to determine where text starts
+			var timestampIdx int = -1
+			for i, entry := range currentEntry {
+				if strings.Contains(entry, "-->") {
+					timestampIdx = i
+					break
+				}
+			}
+
+			// If we found a timestamp, this is a valid entry
+			if timestampIdx >= 0 {
+				// Get the entry key for deduplication (timestamp + text)
+				var entryKey strings.Builder
+				entryKey.WriteString(currentEntry[timestampIdx]) // timestamp line
+				if timestampIdx+1 < len(currentEntry) {
+					entryKey.WriteString("|")
+					entryKey.WriteString(strings.Join(currentEntry[timestampIdx+1:], "\n"))
+				}
+
+				key := entryKey.String()
+				if !seenEntries[key] {
+					seenEntries[key] = true
+					// Add re-indexed entry with new sequential number
+					cleaned = append(cleaned, fmt.Sprintf("%d", entryIndex))
+					// Add timestamp line
+					cleaned = append(cleaned, currentEntry[timestampIdx])
+					// Add all text lines (if any exist)
+					for i := timestampIdx + 1; i < len(currentEntry); i++ {
+						cleaned = append(cleaned, currentEntry[i])
+					}
 					cleaned = append(cleaned, "")
+					entryIndex++
 				}
 			}
 			currentEntry = nil
-		} else if line != "" {
+		} else if trimmedLine != "" || (len(currentEntry) > 0 && line == "") {
+			// Add line to current entry - preserve original formatting
 			currentEntry = append(currentEntry, line)
 		}
 	}
 
 	// Add last entry if exists
-	if len(currentEntry) >= 3 {
-		text := strings.Join(currentEntry[2:], "\n")
-		if !seenText[text] {
-			cleaned = append(cleaned, strings.Join(currentEntry, "\n"))
+	if len(currentEntry) > 0 {
+		var timestampIdx int = -1
+		for i, entry := range currentEntry {
+			if strings.Contains(entry, "-->") {
+				timestampIdx = i
+				break
+			}
+		}
+
+		if timestampIdx >= 0 {
+			var entryKey strings.Builder
+			entryKey.WriteString(currentEntry[timestampIdx])
+			if timestampIdx+1 < len(currentEntry) {
+				entryKey.WriteString("|")
+				entryKey.WriteString(strings.Join(currentEntry[timestampIdx+1:], "\n"))
+			}
+
+			key := entryKey.String()
+			if !seenEntries[key] {
+				cleaned = append(cleaned, fmt.Sprintf("%d", entryIndex))
+				cleaned = append(cleaned, currentEntry[timestampIdx])
+				for i := timestampIdx + 1; i < len(currentEntry); i++ {
+					cleaned = append(cleaned, currentEntry[i])
+				}
+			}
 		}
 	}
 
