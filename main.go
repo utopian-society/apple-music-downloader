@@ -2383,7 +2383,18 @@ func mvDownloader(adamID string, saveDir string, token string, storefront string
 		fmt.Printf("\rExtracting closed captions...")
 		err = subtitle.ExtractClosedCaptionsFromMP4(vidPath, tempSubtitlePath, Config.FFmpegPath)
 		if err != nil {
-			fmt.Printf("\r[INFO] Could not extract closed captions: %v\n", err)
+			// If extraction failed, don't treat this as having closed captions
+			hasCC = false
+			// Don't show error for common cases - it's expected for some videos
+			if strings.Contains(err.Error(), "no data") ||
+				strings.Contains(err.Error(), "not found") ||
+				strings.Contains(err.Error(), "does not contain extractable") ||
+				strings.Contains(err.Error(), "all closed caption extraction methods failed") ||
+				strings.Contains(err.Error(), "all alternative extraction methods failed") {
+				fmt.Printf("\r                                                        \r") // Clear the line
+			} else {
+				fmt.Printf("\r[INFO] Could not extract closed captions: %v\n", err)
+			}
 		} else {
 			// Clean up the extracted subtitles (remove formatting tags, duplicates)
 			err = subtitle.CleanSRTFile(tempSubtitlePath)
@@ -2394,13 +2405,13 @@ func mvDownloader(adamID string, saveDir string, token string, storefront string
 			fmt.Printf("\r✓ Closed captions extracted successfully\n")
 		}
 	} else {
-		fmt.Printf("\r[INFO] No embedded subtitles found in this video\n")
+		fmt.Printf("\r                                                        \r") // Clear the line - no need to show info if no subs
 	}
 
 	// Remove EIA-608 closed captions from video file if they exist
-	// (EIA-608 captions are embedded in the video stream, so we need to strip them)
+	// Only do this if we successfully extracted subtitles (meaning they really exist)
 	vidPathClean := vidPath
-	if hasCC {
+	if subtitleExtracted {
 		fmt.Printf("Removing EIA-608 closed captions from video...")
 		vidPathClean = filepath.Join(saveDir, fmt.Sprintf("%s_vid_nocc.mp4", adamID))
 		stripCmd := exec.Command(Config.FFmpegPath,

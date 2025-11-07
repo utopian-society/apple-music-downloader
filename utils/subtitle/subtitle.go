@@ -588,121 +588,250 @@ func ExtractClosedCaptionsFromMP4(videoPath, outputPath, ffmpegPath string) erro
 		return fmt.Errorf("video file not found: %s", videoPath)
 	}
 
-	// Extract closed captions to SRT format
-	// FFmpeg can extract EIA-608 captions directly to SRT
-	cmd := exec.Command(ffmpegPath,
-		"-i", videoPath,
-		"-map", "0:s?", // Select subtitle streams (including closed captions)
-		"-c:s", "srt", // Convert to SRT
-		"-f", "srt", // Force SRT format
-		"-y", // Overwrite output
-		outputPath)
+	// Step 1: Use ffprobe to detect ALL streams (including text/subtitle streams)
+	cmd := exec.Command("ffprobe",
+		"-v", "quiet",
+		"-print_format", "json",
+		"-show_streams",
+		videoPath)
 
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
+	output, err := cmd.Output()
 	if err != nil {
-		// Try alternative method for closed captions
-		return extractClosedCaptionsAlternative(videoPath, outputPath, ffmpegPath)
+		return fmt.Errorf("ffprobe failed: %v", err)
 	}
 
-	// Check if output file was created and has content
-	info, err := os.Stat(outputPath)
-	if err != nil || info.Size() == 0 {
-		return extractClosedCaptionsAlternative(videoPath, outputPath, ffmpegPath)
+	// Parse to find subtitle/text streams (including c608 EIA-608)
+	var result struct {
+		Streams []struct {
+			Index          int    `json:"index"`
+			CodecName      string `json:"codec_name"`
+			CodecType      string `json:"codec_type"`
+			CodecTagString string `json:"codec_tag_string"`
+		} `json:"streams"`
 	}
 
-	return nil
+	if err := json.Unmarshal(output, &result); err != nil {
+		return fmt.Errorf("failed to parse ffprobe output: %v", err)
+	}
+
+	// Find subtitle/text streams (look for codec_type="subtitle" or codec_name containing "608" or "c608")
+	var subtitleStreams []struct {
+		Index     int
+		CodecName string
+	}
+
+	for _, stream := range result.Streams {
+		if stream.CodecType == "subtitle" ||
+			strings.Contains(stream.CodecName, "608") ||
+			stream.CodecName == "eia_608" ||
+			stream.CodecName == "c608" ||
+			stream.CodecTagString == "c608" {
+			subtitleStreams = append(subtitleStreams, struct {
+				Index     int
+				CodecName string
+			}{stream.Index, stream.CodecName})
+		}
+	}
+
+	if len(subtitleStreams) == 0 {
+		return fmt.Errorf("no closed captions found in video or failed to extract")
+	}
+
+	// Step 2: For EIA-608 streams, try CCExtractor first (FFmpeg can't extract the data properly)
+	for _, stream := range subtitleStreams {
+		// If this is an EIA-608 stream, try CCExtractor first
+		if stream.CodecName == "eia_608" || stream.CodecName == "c608" || strings.Contains(stream.CodecName, "608") {
+			// Try CCExtractor first for EIA-608
+			if err := extractWithCCExtractor(videoPath, outputPath); err == nil {
+				if info, statErr := os.Stat(outputPath); statErr == nil && info.Size() > 100 {
+					return nil
+				}
+			}
+		}
+
+		// Method A: Direct extraction to SRT
+		cmd := exec.Command(ffmpegPath,
+			"-i", videoPath,
+			"-map", fmt.Sprintf("0:%d", stream.Index),
+			"-c:s", "srt",
+			"-y",
+			outputPath)
+
+		if cmd.Run() == nil {
+			if info, err := os.Stat(outputPath); err == nil && info.Size() > 100 {
+				return nil
+			}
+		}
+
+		// Method B: Extract without codec conversion
+		cmd = exec.Command(ffmpegPath,
+			"-i", videoPath,
+			"-map", fmt.Sprintf("0:%d", stream.Index),
+			"-y",
+			outputPath)
+
+		if cmd.Run() == nil {
+			if info, err := os.Stat(outputPath); err == nil && info.Size() > 100 {
+				return nil
+			}
+		}
+
+		// Method C: Extract to WebVTT then convert
+		tempVttPath := strings.TrimSuffix(outputPath, ".srt") + "_temp.vtt"
+		cmd = exec.Command(ffmpegPath,
+			"-i", videoPath,
+			"-map", fmt.Sprintf("0:%d", stream.Index),
+			"-c:s", "webvtt",
+			"-y",
+			tempVttPath)
+
+		if cmd.Run() == nil {
+			if info, err := os.Stat(tempVttPath); err == nil && info.Size() > 100 {
+				// Convert WebVTT to SRT
+				if vttContent, err := os.ReadFile(tempVttPath); err == nil {
+					if srtContent, err := WebVTTToSRT(string(vttContent)); err == nil {
+						if err := os.WriteFile(outputPath, []byte(srtContent), 0644); err == nil {
+							_ = os.Remove(tempVttPath)
+							if info, err := os.Stat(outputPath); err == nil && info.Size() > 100 {
+								return nil
+							}
+						}
+					}
+				}
+				_ = os.Remove(tempVttPath)
+			}
+		}
+	}
+
+	// Try alternative methods if direct extraction failed
+	err = extractClosedCaptionsAlternative(videoPath, outputPath, ffmpegPath)
+
+	// Final check: if file was created with any content during any attempt, consider it success
+	if info, statErr := os.Stat(outputPath); statErr == nil && info.Size() > 0 {
+		return nil
+	}
+
+	return err
 }
 
 // extractClosedCaptionsAlternative uses alternative FFmpeg method to extract CC
 func extractClosedCaptionsAlternative(videoPath, outputPath, ffmpegPath string) error {
-	// Try extracting using subtitle filter
-	cmd := exec.Command(ffmpegPath,
-		"-f", "lavfi",
-		"-i", fmt.Sprintf("movie=%s[out+subcc]", videoPath),
-		"-map", "0:s",
-		"-y",
-		outputPath)
-
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-	if err != nil {
-		// Try additional FFmpeg methods without external dependencies
-		return extractWithFFmpegOnly(videoPath, outputPath, ffmpegPath)
-	}
-
-	// Check if output file was created and has content
-	info, err := os.Stat(outputPath)
-	if err != nil || info.Size() == 0 {
-		return fmt.Errorf("no closed captions found in video or failed to extract")
-	}
-
-	return nil
-}
-
-// extractWithFFmpegOnly uses FFmpeg-only methods without external dependencies like CCExtractor
-func extractWithFFmpegOnly(videoPath, outputPath, ffmpegPath string) error {
-	// Method 1: Try extracting with text subtitles codec
+	// Method 1: Try direct copy without codec conversion
 	cmd := exec.Command(ffmpegPath,
 		"-i", videoPath,
 		"-map", "0:s:0",
-		"-c:s", "text",
-		"-f", "srt",
+		"-c:s", "copy",
 		"-y",
 		outputPath)
 
+	if cmd.Run() == nil {
+		if info, err := os.Stat(outputPath); err == nil && info.Size() > 100 {
+			return nil
+		}
+	}
+
+	// Method 2: Try extracting without format specification
+	cmd = exec.Command(ffmpegPath,
+		"-i", videoPath,
+		"-map", "0:s:0",
+		"-y",
+		outputPath)
+
+	if cmd.Run() == nil {
+		if info, err := os.Stat(outputPath); err == nil && info.Size() > 100 {
+			return nil
+		}
+	}
+
+	// Method 3: Try with explicit codec name
+	cmd = exec.Command(ffmpegPath,
+		"-i", videoPath,
+		"-map", "0:s:0",
+		"-c:s", "srt",
+		"-y",
+		outputPath)
+
+	if cmd.Run() == nil {
+		if info, err := os.Stat(outputPath); err == nil && info.Size() > 100 {
+			return nil
+		}
+	}
+
+	// Method 4: Try extracting to WebVTT first, then convert
+	tempVttPath := strings.TrimSuffix(outputPath, ".srt") + ".vtt"
+	cmd = exec.Command(ffmpegPath,
+		"-i", videoPath,
+		"-map", "0:s:0",
+		"-c:s", "webvtt",
+		"-y",
+		tempVttPath)
+
+	if cmd.Run() == nil {
+		if info, err := os.Stat(tempVttPath); err == nil && info.Size() > 100 {
+			// Convert WebVTT to SRT
+			vttContent, err := os.ReadFile(tempVttPath)
+			if err == nil {
+				srtContent, err := WebVTTToSRT(string(vttContent))
+				if err == nil {
+					os.WriteFile(outputPath, []byte(srtContent), 0644)
+					os.Remove(tempVttPath)
+					if info, err := os.Stat(outputPath); err == nil && info.Size() > 100 {
+						return nil
+					}
+				}
+			}
+			os.Remove(tempVttPath)
+		}
+	}
+
+	// Try ccextractor if all FFmpeg methods fail
+	return extractWithCCExtractor(videoPath, outputPath)
+}
+
+// extractWithCCExtractor uses CCExtractor tool if available
+func extractWithCCExtractor(videoPath, outputPath string) error {
+	// Check if ccextractor is available
+	cmd := exec.Command("ccextractor", "--version")
+	var versionOut bytes.Buffer
+	cmd.Stdout = &versionOut
+	cmd.Stderr = &versionOut
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("all closed caption extraction methods failed (ccextractor not installed)")
+	}
+
+	// CCExtractor syntax: ccextractor [options] inputfile [-o outputfilename]
+	// For EIA-608: ccextractor input.mp4 -o output.srt
+	cmd = exec.Command("ccextractor",
+		videoPath,        // Input file
+		"-o", outputPath) // Output file
+
+	var stdout bytes.Buffer
 	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	err := cmd.Run()
-	if err == nil {
-		if info, statErr := os.Stat(outputPath); statErr == nil && info.Size() > 0 {
-			return nil
-		}
+
+	// CCExtractor might return non-zero exit code even on success
+	// Check if output file was created with content first
+	if info, statErr := os.Stat(outputPath); statErr == nil && info.Size() > 100 {
+		return nil // Success - file created with reasonable content
 	}
 
-	// Method 2: Try extracting with data stream (for EIA-608/CEA-608)
-	cmd = exec.Command(ffmpegPath,
-		"-i", videoPath,
-		"-c:s", "mov_text",
-		"-f", "srt",
-		"-y",
-		outputPath)
-
-	stderr.Reset()
-	cmd.Stderr = &stderr
-
-	err = cmd.Run()
-	if err == nil {
-		if info, statErr := os.Stat(outputPath); statErr == nil && info.Size() > 0 {
-			return nil
-		}
-	}
-
-	// Method 3: Try extracting all available subtitle streams
-	cmd = exec.Command(ffmpegPath,
-		"-txt_format", "text",
-		"-i", videoPath,
-		"-map", "0:s?",
-		"-y",
-		outputPath)
-
-	stderr.Reset()
-	cmd.Stderr = &stderr
-
-	err = cmd.Run()
+	// Check again after successful run
 	if err != nil {
-		return fmt.Errorf("closed caption extraction failed: no subtitle streams found in video")
+		errMsg := stderr.String()
+		if strings.Contains(errMsg, "No captions") || strings.Contains(errMsg, "can't be read") {
+			return fmt.Errorf("no closed captions found in video")
+		}
+		return fmt.Errorf("CCExtractor failed: %v - %s", err, errMsg)
 	}
 
 	// Check if output file was created and has content
 	info, err := os.Stat(outputPath)
-	if err != nil || info.Size() == 0 {
-		return fmt.Errorf("no closed captions found in video")
+	if err != nil || info.Size() < 100 {
+		return fmt.Errorf("no closed captions found in video or failed to extract")
 	}
 
 	return nil
@@ -714,12 +843,11 @@ func HasClosedCaptions(videoPath, ffmpegPath string) (bool, error) {
 		ffmpegPath = "ffmpeg"
 	}
 
-	// Use ffprobe to check for subtitle/closed caption streams
+	// Use ffprobe to check for subtitle/closed caption streams (check ALL streams)
 	cmd := exec.Command("ffprobe",
 		"-v", "quiet",
 		"-print_format", "json",
 		"-show_streams",
-		"-select_streams", "s",
 		videoPath)
 
 	output, err := cmd.Output()
@@ -730,9 +858,10 @@ func HasClosedCaptions(videoPath, ffmpegPath string) (bool, error) {
 	// Parse JSON output
 	var result struct {
 		Streams []struct {
-			CodecName string `json:"codec_name"`
-			CodecType string `json:"codec_type"`
-			Tags      struct {
+			CodecName      string `json:"codec_name"`
+			CodecType      string `json:"codec_type"`
+			CodecTagString string `json:"codec_tag_string"`
+			Tags           struct {
 				Language string `json:"language"`
 			} `json:"tags"`
 		} `json:"streams"`
@@ -743,7 +872,18 @@ func HasClosedCaptions(videoPath, ffmpegPath string) (bool, error) {
 		return false, err
 	}
 
-	return len(result.Streams) > 0, nil
+	// Check for subtitle streams or c608/EIA-608 streams
+	for _, stream := range result.Streams {
+		if stream.CodecType == "subtitle" ||
+			strings.Contains(stream.CodecName, "608") ||
+			stream.CodecName == "eia_608" ||
+			stream.CodecName == "c608" ||
+			stream.CodecTagString == "c608" {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // ExtractAllSubtitlesFromMP4 extracts all subtitle/CC tracks from MP4 file
