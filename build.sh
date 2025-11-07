@@ -131,3 +131,4 @@ echo -e "  View help:"
 echo -e "    ${GREEN}./${BUILD_OUTPUT} --help${NC}"
 echo ""
 echo -e "${GREEN}🎉 Build complete!${NC}"
+
