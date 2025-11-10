@@ -1811,7 +1811,7 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 	}
 
 	if Config.Storefront != "" {
-		customTags["COUNTRY"] = getCountryName(Config.Storefront)
+		customTags["AppleStoreCountry"] = getCountryName(Config.Storefront)
 	}
 
 	customTags["PURCHASEDATE"] = time.Now().Format("2006-01-02 15:04:05")

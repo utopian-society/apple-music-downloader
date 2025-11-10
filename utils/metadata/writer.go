@@ -296,7 +296,7 @@ func WriteMP4Tags(trackPath, lrc string, meta *ampapi.AlbumResp, trackNum, track
 	}
 
 	if config.Storefront != "" {
-		customTags["COUNTRY"] = GetCountryName(config.Storefront)
+		customTags["AppleStoreCountry"] = GetCountryName(config.Storefront)
 	}
 
 	customTags["PURCHASEDATE"] = time.Now().Format("2006-01-02 15:04:05")
