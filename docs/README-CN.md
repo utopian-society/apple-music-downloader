@@ -1,4 +1,4 @@
-[English](./README.md) / 简体中文
+[English](../README.md) / 简体中文
 
 
 ### ！！必须先安装[MP4Box](https://gpac.io/downloads/gpac-nightly-builds/)，并确认[MP4Box](https://gpac.io/downloads/gpac-nightly-builds/)已正确添加到环境变量
