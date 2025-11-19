@@ -108,11 +108,13 @@ echo -e "   Executable:  ${GREEN}✓${NC}"
 echo ""
 
 # Set execute permission
+echo -e "${YELLOW}🔑 Setting execute permissions...${NC}"
 chmod +x "${BUILD_OUTPUT}"
 
 # Verify executable
 echo -e "${YELLOW}🧪 Verifying build...${NC}"
-if "${BUILD_OUTPUT}" --help 2>&1 | head -10 | grep -iq "Music"; then
+# Fixed: added ./ to ensure it executes from current directory
+if ./"${BUILD_OUTPUT}" --help 2>&1 | head -10 | grep -iq "Music"; then
     echo -e "${GREEN}✅ Verification successful, program runs correctly${NC}"
 else
     echo -e "${RED}⚠️  Warning: Program may not run correctly${NC}"
