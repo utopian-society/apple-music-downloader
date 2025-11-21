@@ -2681,6 +2681,7 @@ func extractMedia(b string, more_mode bool) (string, string, error) {
 
 		var hasAAC, hasLossless, hasHiRes, hasAtmos, hasDolbyAudio bool
 		var aacQuality, losslessQuality, hiResQuality, atmosQuality, dolbyAudioQuality string
+		var aacMaxBitrate, aacBestPriority int
 
 		for _, variant := range master.Variants {
 			if strings.HasPrefix(variant.Codecs, "mp4a") { // AAC (LC or HE)
@@ -2688,25 +2689,28 @@ func extractMedia(b string, more_mode bool) (string, string, error) {
 				split := strings.Split(variant.Audio, "-")
 				if len(split) >= 3 {
 					bitrate := getBitrate(variant.Audio)
-					typeStr := "AAC-LC"
+					typeStr := "AAC"
 					// Heuristic: < 96kbps is usually HE-AAC, or check codec
 					if bitrate < 96 || variant.Codecs == "mp4a.40.5" || variant.Codecs == "mp4a.40.29" {
 						typeStr = "AAC-HE"
 					}
 
+					priority := 0
 					if strings.Contains(variant.Audio, "binaural") {
 						typeStr += " | Binaural"
+						priority = 1
 					} else if strings.Contains(variant.Audio, "downmix") {
 						typeStr += " | Downmix"
+						priority = 2
 					} else {
 						typeStr += " | 2 Channel"
+						priority = 3
 					}
 
-					newLine := fmt.Sprintf("%s | %d kbps", typeStr, bitrate)
-					if aacQuality == "" {
-						aacQuality = newLine
-					} else {
-						aacQuality += "\n" + newLine
+					if bitrate > aacMaxBitrate || (bitrate == aacMaxBitrate && priority > aacBestPriority) {
+						aacMaxBitrate = bitrate
+						aacBestPriority = priority
+						aacQuality = fmt.Sprintf("%s | %d kbps", typeStr, bitrate)
 					}
 				}
 			} else if variant.Codecs == "ec-3" && strings.Contains(variant.Audio, "atmos") { // Dolby Atmos
@@ -2752,7 +2756,7 @@ func extractMedia(b string, more_mode bool) (string, string, error) {
 		}
 
 		fmt.Println("Available Audio Formats:")
-		fmt.Printf("AAC:\n\n%s\n", formatAvailabilityV2(hasAAC, aacQuality))
+		fmt.Printf("AAC : %s\n", formatAvailability(hasAAC, aacQuality))
 		fmt.Printf("Lossless : %s\n", formatAvailability(hasLossless, losslessQuality))
 		fmt.Printf("Hi-Res Lossless : %s\n", formatAvailability(hasHiRes, hiResQuality))
 		fmt.Printf("Dolby Atmos : %s\n", formatAvailability(hasAtmos, atmosQuality))
@@ -2932,7 +2936,6 @@ func extractVideo(c string) (string, error) {
 
 	return streamUrl.String(), nil
 }
-
 func ripSong(songId string, token string, storefront string, mediaUserToken string) error {
 	// Get song info to find album ID
 	manifest, err := ampapi.GetSongResp(storefront, songId, Config.Language, token)

@@ -18,6 +18,7 @@
 ### 特别感谢 `chocomint` 创建 `agent-arm64.js`
 对于获取`aac-lc` `MV` `歌词` 必须填入有订阅的`media-user-token`
 
+- `aac-he (audio-he)`
 - `alac (audio-alac-stereo)`
 - `ec3 (audio-atmos / audio-ec3)`
 - `aac (audio-stereo)`
@@ -25,6 +26,8 @@
 - `aac-binaural (audio-stereo-binaural)`
 - `aac-downmix (audio-stereo-downmix)`
 - `MV`
+
+**注意**: `aac-lc` 不适用于 HE-AAC（HE-AAC / HE-AACv2）流 — 它仅适用于普通的 AAC 变体，例如 binaural、downmix、stereo 等。
 
 # Apple Music ALAC/杜比全景声下载器
 
