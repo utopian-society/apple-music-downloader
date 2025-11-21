@@ -23,9 +23,10 @@ For acquisition`aac-lc` `MV` `lyrics` You must fill in the information with a su
 - `ec3 (audio-atmos / audio-ec3)`
 - `aac (audio-stereo)`
 - `aac-lc (audio-stereo)`
+- `aac-he (audio-he)`
 - `aac-binaural (audio-stereo-binaural)`
 - `aac-downmix (audio-stereo-downmix)`
-- `MV`
+- Note: `aac-lc` does not work with HE-AAC streams — it only works with AAC variants such as binaural, downmix, and stereo.
 
 # Apple Music ALAC / Dolby Atmos Downloader
 
