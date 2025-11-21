@@ -32,6 +32,7 @@ type ConfigSet struct {
 	GetM3u8Mode                string `yaml:"get-m3u8-mode"`
 	GetM3u8FromDevice          bool   `yaml:"get-m3u8-from-device"`
 	AacType                    string `yaml:"aac-type"`
+	AacMax                     int    `yaml:"aac-max"`
 	AlacMax                    int    `yaml:"alac-max"`
 	AtmosMax                   int    `yaml:"atmos-max"`
 	LimitMax                   int    `yaml:"limit-max"`

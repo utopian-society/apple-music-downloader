@@ -53,6 +53,7 @@ var (
 	mv_max         *int
 	mv_audio_type  *string
 	aac_type       *string
+	aac_max        *int
 	Config         structs.ConfigSet
 	counter        structs.Counter
 	okDict         = make(map[string][]int)
@@ -2128,6 +2129,7 @@ func main() {
 	alac_max = pflag.Int("alac-max", Config.AlacMax, "Specify the max quality for download alac")
 	atmos_max = pflag.Int("atmos-max", Config.AtmosMax, "Specify the max quality for download atmos")
 	aac_type = pflag.String("aac-type", Config.AacType, "Select AAC type, aac aac-binaural aac-downmix")
+	aac_max = pflag.Int("aac-max", Config.AacMax, "Specify the max quality for download aac")
 	mv_audio_type = pflag.String("mv-audio-type", Config.MVAudioType, "Select MV audio type, atmos ac3 aac")
 	mv_max = pflag.Int("mv-max", Config.MVMax, "Specify the max quality for download MV")
 
@@ -2144,6 +2146,7 @@ func main() {
 	Config.AlacMax = *alac_max
 	Config.AtmosMax = *atmos_max
 	Config.AacType = *aac_type
+	Config.AacMax = *aac_max
 	Config.MVAudioType = *mv_audio_type
 	Config.MVMax = *mv_max
 	Config.DownloadMusicVideo = *dl_mv
@@ -2601,6 +2604,32 @@ func checkM3u8(b string, f string) (string, error) {
 	return EnhancedHls, nil
 }
 
+func formatAvailabilityV2(available bool, quality string) string {
+	if available {
+		return quality
+	}
+	return "Not Available"
+}
+
+func getBitrate(s string) int {
+	// Extract the trailing numeric bitrate value using regex
+	re := regexp.MustCompile(`-(\d+)$`)
+	matches := re.FindStringSubmatch(s)
+	if len(matches) == 2 {
+		if v, err := strconv.Atoi(matches[1]); err == nil {
+			return v
+		}
+	}
+	// Fallback: split and find any numeric segment
+	parts := strings.Split(s, "-")
+	for _, p := range parts {
+		if v, err := strconv.Atoi(p); err == nil {
+			return v
+		}
+	}
+	return 0
+}
+
 func formatAvailability(available bool, quality string) string {
 	if !available {
 		return "Not Available"
@@ -2654,19 +2683,30 @@ func extractMedia(b string, more_mode bool) (string, string, error) {
 		var aacQuality, losslessQuality, hiResQuality, atmosQuality, dolbyAudioQuality string
 
 		for _, variant := range master.Variants {
-			if variant.Codecs == "mp4a.40.2" { // AAC
+			if strings.HasPrefix(variant.Codecs, "mp4a") { // AAC (LC or HE)
 				hasAAC = true
 				split := strings.Split(variant.Audio, "-")
 				if len(split) >= 3 {
-					bitrate, _ := strconv.Atoi(split[2])
-					currentBitrate := 0
-					if aacQuality != "" {
-						current := strings.Split(aacQuality, " | ")[2]
-						current = strings.Split(current, " ")[0]
-						currentBitrate, _ = strconv.Atoi(current)
+					bitrate := getBitrate(variant.Audio)
+					typeStr := "AAC-LC"
+					// Heuristic: < 96kbps is usually HE-AAC, or check codec
+					if bitrate < 96 || variant.Codecs == "mp4a.40.5" || variant.Codecs == "mp4a.40.29" {
+						typeStr = "AAC-HE"
 					}
-					if bitrate > currentBitrate {
-						aacQuality = fmt.Sprintf("AAC | 2 Channel | %d Kbps", bitrate)
+
+					if strings.Contains(variant.Audio, "binaural") {
+						typeStr += " | Binaural"
+					} else if strings.Contains(variant.Audio, "downmix") {
+						typeStr += " | Downmix"
+					} else {
+						typeStr += " | 2 Channel"
+					}
+
+					newLine := fmt.Sprintf("%s | %d kbps", typeStr, bitrate)
+					if aacQuality == "" {
+						aacQuality = newLine
+					} else {
+						aacQuality += "\n" + newLine
 					}
 				}
 			} else if variant.Codecs == "ec-3" && strings.Contains(variant.Audio, "atmos") { // Dolby Atmos
@@ -2712,13 +2752,11 @@ func extractMedia(b string, more_mode bool) (string, string, error) {
 		}
 
 		fmt.Println("Available Audio Formats:")
-		fmt.Println("------------------------")
-		fmt.Printf("AAC             : %s\n", formatAvailability(hasAAC, aacQuality))
-		fmt.Printf("Lossless        : %s\n", formatAvailability(hasLossless, losslessQuality))
+		fmt.Printf("AAC:\n\n%s\n", formatAvailabilityV2(hasAAC, aacQuality))
+		fmt.Printf("Lossless : %s\n", formatAvailability(hasLossless, losslessQuality))
 		fmt.Printf("Hi-Res Lossless : %s\n", formatAvailability(hasHiRes, hiResQuality))
-		fmt.Printf("Dolby Atmos     : %s\n", formatAvailability(hasAtmos, atmosQuality))
-		fmt.Printf("Dolby Audio     : %s\n", formatAvailability(hasDolbyAudio, dolbyAudioQuality))
-		fmt.Println("------------------------")
+		fmt.Printf("Dolby Atmos : %s\n", formatAvailability(hasAtmos, atmosQuality))
+		fmt.Printf("Dolby Audio : %s\n", formatAvailability(hasDolbyAudio, dolbyAudioQuality))
 
 		return "", "", nil
 	}
@@ -2763,24 +2801,40 @@ func extractMedia(b string, more_mode bool) (string, string, error) {
 				break
 			}
 		} else if dl_aac {
-			if variant.Codecs == "mp4a.40.2" {
+			if variant.Codecs == "mp4a.40.2" || variant.Codecs == "mp4a.40.5" {
 				if debug_mode && !more_mode {
 					fmt.Printf("Debug: Found AAC variant - %s (Bitrate: %d)\n", variant.Audio, variant.Bandwidth)
 				}
-				aacregex := regexp.MustCompile(`audio-stereo-\d+`)
+				aacregex := regexp.MustCompile(`audio-(stereo|HE-stereo)-\d+`)
 				replaced := aacregex.ReplaceAllString(variant.Audio, "aac")
-				if replaced == Config.AacType {
-					if !debug_mode && !more_mode {
-						fmt.Printf("%s\n", variant.Audio)
-					}
-					streamUrlTemp, err := masterUrl.Parse(variant.URI)
-					if err != nil {
-						panic(err)
-					}
-					streamUrl = streamUrlTemp
+				if replaced == Config.AacType || (replaced == "aac" && Config.AacType == "aac-lc") {
 					split := strings.Split(variant.Audio, "-")
-					Quality = fmt.Sprintf("%s Kbps", split[2])
-					break
+					var bitrate int
+					if variant.Codecs == "mp4a.40.2" && len(split) >= 3 {
+						bitrate, err = strconv.Atoi(split[2])
+						if err != nil {
+							continue
+						}
+					} else if variant.Codecs == "mp4a.40.5" && len(split) >= 4 && split[2] == "stereo" {
+						bitrate, err = strconv.Atoi(split[3])
+						if err != nil {
+							continue
+						}
+					} else {
+						continue
+					}
+					if bitrate <= Config.AacMax {
+						if !debug_mode && !more_mode {
+							fmt.Printf("%s\n", variant.Audio)
+						}
+						streamUrlTemp, err := masterUrl.Parse(variant.URI)
+						if err != nil {
+							return "", "", err
+						}
+						streamUrl = streamUrlTemp
+						Quality = fmt.Sprintf("%d kbps", bitrate)
+						break
+					}
 				}
 			}
 		} else {
