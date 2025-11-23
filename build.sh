@@ -79,7 +79,7 @@ else
 fi
 
 # Execute build
-if go build ${COMPRESS_FLAG} -trimpath -ldflags="${LDFLAGS}" -o "${BUILD_OUTPUT}" .; then
+if go build -buildvcs=false ${COMPRESS_FLAG} -trimpath -ldflags="${LDFLAGS}" -o "${BUILD_OUTPUT}" .; then
     if [ ! -z "$COMPRESS_FLAG" ]; then
         upx --best --lzma "${BUILD_OUTPUT}" || true
     fi
