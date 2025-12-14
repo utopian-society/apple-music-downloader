@@ -5,6 +5,7 @@ lrc-type: "lyrics"   #lyrics or syllable-lyrics
 lrc-format: "lrc"   #lrc or ttml
 embed-lrc: true
 save-lrc-file: false
+lyrics-only: false          # Download only lyrics files (no audio), can be overridden with --lyrics flag
 save-artist-cover: false
 save-animated-artwork: false    # If enabled, requires ffmpeg
 emby-animated-artwork: false    # If enabled, requires ffmpeg
@@ -23,7 +24,7 @@ get-m3u8-mode: hires # all hires
 aac-type: aac-lc # aac-lc aac aac-binaural aac-downmix
 alac-max: 192000  #192000 96000 48000 44100
 atmos-max: 2768  #2768 2448
-aac-max: 128 # Max bitrate for AAC (e.g. 64, 128, 256)
+aac-max: 256 # Max bitrate for AAC (e.g. 64, 128, 256)
 limit-max: 200
 #{AlbumId} {AlbumName} {ArtistName} {ReleaseDate} {ReleaseYear} {UPC} {Copyright} {Quality} {Codec} {Tag} {RecordLabel}
 #example: {ReleaseYear} - {ArtistName} - {AlbumName}({AlbumId})({UPC})({Copyright}){Codec}

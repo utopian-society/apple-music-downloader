@@ -46,6 +46,7 @@ var (
 	dl_select      bool
 	dl_song        bool
 	dl_mv          *bool
+	dl_lyrics      bool
 	artist_select  bool
 	debug_mode     bool
 	alac_max       *int
@@ -890,21 +891,42 @@ func ripTrack(track *task.Track, token string, mediaUserToken string) {
 	}
 	//get lrc
 	var lrc string = ""
-	if Config.EmbedLrc || Config.SaveLrcFile {
+	lyricsOnlyMode := dl_lyrics || Config.LyricsOnly
+	if Config.EmbedLrc || Config.SaveLrcFile || lyricsOnlyMode {
 		lrcStr, err := lyrics.Get(track.Storefront, track.ID, Config.LrcType, Config.Language, Config.LrcFormat, token, mediaUserToken)
 		if err != nil {
 			fmt.Println(err)
+			if lyricsOnlyMode {
+				counter.Error++
+				return
+			}
 		} else {
-			if Config.SaveLrcFile {
+			if Config.SaveLrcFile || lyricsOnlyMode {
 				err := writeLyrics(track.SaveDir, lrcFilename, lrcStr)
 				if err != nil {
 					fmt.Printf("Failed to write lyrics")
+					if lyricsOnlyMode {
+						counter.Error++
+						return
+					}
+				} else if lyricsOnlyMode {
+					fmt.Println("Lyrics saved successfully")
+					counter.Success++
+					okDict[track.PreID] = append(okDict[track.PreID], track.TaskNum)
+					return
 				}
 			}
 			if Config.EmbedLrc {
 				lrc = lrcStr
 			}
 		}
+	}
+
+	// Lyrics-only mode: skip audio download
+	if lyricsOnlyMode {
+		fmt.Println("Lyrics-only mode: No lyrics available for this track")
+		counter.Unavailable++
+		return
 	}
 
 	// Existence check now considers converted output (if original was deleted)
@@ -2126,6 +2148,7 @@ func main() {
 	dl_mv = pflag.Bool("dl-mv", Config.DownloadMusicVideo, "Enable music video download mode")
 	pflag.BoolVar(&artist_select, "all-album", false, "Download all artist albums")
 	pflag.BoolVar(&debug_mode, "debug", false, "Enable debug mode to show audio quality information")
+	pflag.BoolVar(&dl_lyrics, "lyrics", false, "Download only lyrics files (LRC or TTML based on config)")
 	alac_max = pflag.Int("alac-max", Config.AlacMax, "Specify the max quality for download alac")
 	atmos_max = pflag.Int("atmos-max", Config.AtmosMax, "Specify the max quality for download atmos")
 	aac_type = pflag.String("aac-type", Config.AacType, "Select AAC type, aac aac-binaural aac-downmix")
@@ -2137,6 +2160,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] [url1 url2 ...]\n", "[main | main.exe | go run main.go]")
 		fmt.Fprintf(os.Stderr, "Search Usage: %s --search [album|song|artist|music-video] [query]\n", "[main | main.exe | go run main.go]")
 		fmt.Fprintf(os.Stderr, "Batch Usage: %s --batch file1.txt --batch file2.txt\n", "[main | main.exe | go run main.go]")
+		fmt.Fprintf(os.Stderr, "Lyrics Usage: %s --lyrics [url]\n", "[main | main.exe | go run main.go]")
 		fmt.Fprintf(os.Stderr, "Batch Usage (multiple files): %s --batch file1.txt file2.txt file3.txt\n", "[main | main.exe | go run main.go]")
 		fmt.Println("\nOptions:")
 		pflag.PrintDefaults()
