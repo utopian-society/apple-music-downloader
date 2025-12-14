@@ -33,6 +33,46 @@
 
 原脚本由 Sorrow 编写。本人已修改，包含一些修复和改进。
 
+## 使用 Docker 运行
+
+1. 确保解密程序 [wrapper](https://github.com/WorldObservationLog/wrapper) 正在运行
+2. 修改 config.yaml 添加以下内容设置下载路径：
+   ```yaml
+   alac-save-folder: "/downloads/ALAC"
+   atmos-save-folder: "/downloads/ATMOS"
+   aac-save-folder: "/downloads/AAC"
+   ```
+2. 构建 Docker 镜像：
+   ```bash
+   docker build -t apple-music-dl .
+   ```
+3. 运行下载器：
+   ```bash
+   # 显示帮助
+   docker run --network host -v ../downloads:/downloads apple-music-dl --help
+
+   # 开始下载部分专辑
+   docker run --network host -v ../downloads:/downloads apple-music-dl https://music.apple.com/ru/album/children-of-forever/1443732441 
+
+   # 开始下载单曲
+   docker run --network host -v ../downloads:/downloads apple-music-dl --song https://music.apple.com/ru/album/bass-folk-song/1443732441?i=1443732453
+
+   # 开始下载所选曲目
+   docker run -it --network host -v ../downloads:/downloads apple-music-dl --select https://music.apple.com/ru/album/children-of-forever/1443732441
+
+   # 开始下载部分播放列表
+   docker run --network host -v ../downloads:/downloads apple-music-dl https://music.apple.com/us/playlist/taylor-swift-essentials/pl.3950454ced8c45a3b0cc693c2a7db97b
+
+   # 杜比全景声
+   docker run --network host -v ../downloads:/downloads apple-music-dl --atmos https://music.apple.com/us/album/1989-taylors-version-deluxe/1713845538
+   
+   # AAC 格式
+   docker run --network host -v ../downloads:/downloads apple-music-dl --aac https://music.apple.com/us/album/1989-taylors-version-deluxe/1713845538
+
+   # 查看音质
+   docker run --network host -v ./downloads:/downloads apple-music-dl --debug https://music.apple.com/ru/album/miles-smiles/209407331
+   ```
+
 ## 使用方法
 1. 确保解密程序 [wrapper](https://github.com/zhaarey/wrapper) 正在运行
 2. 开始下载部分专辑：`go run main.go https://music.apple.com/us/album/whenever-you-need-somebody-2022-remaster/1624945511`。
@@ -54,10 +94,26 @@
 ## 下载歌词
 
 1. 打开 [Apple Music](https://music.apple.com) 并登录
-2. 打开开发者工具，点击“应用程序 -> 存储 -> Cookies -> https://music.apple.com”
-3. 找到名为“media-user-token”的 Cookie 并复制其值
+2. 打开开发者工具，点击"应用程序 -> 存储 -> Cookies -> https://music.apple.com"
+3. 找到名为"media-user-token"的 Cookie 并复制其值
 4. 将步骤 3 中获取的 Cookie 值粘贴到 config.yaml 文件中并保存
 5. 正常启动脚本
+
+## 获取翻译和发音歌词（Beta 测试版）
+
+1. 打开 [Apple Music Beta](https://beta.music.apple.com) 并登录。
+2. 打开开发者工具，点击 `Network`（网络）选项卡。
+3. 搜索一首支持翻译和发音歌词的歌曲（推荐搜索韩语歌曲 K-Pop）。
+4. 按 Ctrl+R 让开发者工具抓取网络数据。
+5. 播放歌曲并点击歌词按钮，抓取结果中会显示一条名为 `syllable-lyrics` 的数据。
+6. 停止抓取（点击左上角的小红圆圈按钮），然后点击 `Fetch/XHR` 选项卡。
+7. 点击 `syllable-lyrics` 数据，查看请求的 URL。
+8. 找到这一行 `.../syllable-lyrics?l=<从这里复制所有语言值>&extend=ttmlLocalizations`。
+9. 将步骤 8 中获取的语言值粘贴到 config.yaml 中并保存。
+10. 如果不需要发音，在 config.yaml 中执行此操作 `...%5D=<删除此值>&extend...` 并保存。
+11. 正常启动脚本。
+
+注意：这些功能目前仅在测试版中可用。
 
 ## 配置选项
 
