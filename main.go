@@ -1856,16 +1856,28 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 	}
 
 	// Add EditorialNotes as comment if available (try Standard, then Short, then Name)
-	// For playlists/stations: use playlist editorial if PreferPlaylistEditorial is true, otherwise use album editorial
+	// For playlists/stations with PreferPlaylistEditorial=true: use playlist editorial first
+	// Otherwise: use album editorial first
 	var editorialNote string
-	if (track.PreType == "playlists" || track.PreType == "stations") && Config.PreferPlaylistEditorial {
-		// Prefer playlist editorial notes
+	isPlaylist := track.PreType == "playlists" || track.PreType == "stations"
+	shouldUsePlaylistEditorial := isPlaylist && Config.PreferPlaylistEditorial
+
+	if debug_mode {
+		fmt.Printf("[DEBUG] Track: %s, IsPlaylist: %v, PreferPlaylistEditorial: %v, Should Use Playlist Editorial: %v\n",
+			track.Name, isPlaylist, Config.PreferPlaylistEditorial, shouldUsePlaylistEditorial)
+	}
+
+	if shouldUsePlaylistEditorial {
+		// Try playlist editorial notes first (Standard -> Short -> Name)
 		editorialNote = track.PlaylistData.Attributes.EditorialNotes.Standard
 		if editorialNote == "" {
 			editorialNote = track.PlaylistData.Attributes.EditorialNotes.Short
 		}
 		if editorialNote == "" {
 			editorialNote = track.PlaylistData.Attributes.EditorialNotes.Name
+		}
+		if debug_mode && editorialNote != "" {
+			fmt.Printf("[DEBUG]  -> Using PLAYLIST editorial (type: Standard/Short/Name)\n")
 		}
 		// Fall back to album editorial if playlist editorial is empty
 		if editorialNote == "" {
@@ -1876,9 +1888,12 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 			if editorialNote == "" {
 				editorialNote = track.AlbumData.Attributes.EditorialNotes.Name
 			}
+			if debug_mode && editorialNote != "" {
+				fmt.Printf("[DEBUG]  -> Playlist editorial empty, using ALBUM editorial as fallback\n")
+			}
 		}
 	} else {
-		// Use album editorial notes (default behavior for albums, or playlists with PreferPlaylistEditorial=false)
+		// Use album editorial first
 		editorialNote = track.AlbumData.Attributes.EditorialNotes.Standard
 		if editorialNote == "" {
 			editorialNote = track.AlbumData.Attributes.EditorialNotes.Short
@@ -1886,14 +1901,20 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		if editorialNote == "" {
 			editorialNote = track.AlbumData.Attributes.EditorialNotes.Name
 		}
-		// For playlists with PreferPlaylistEditorial=false, fall back to playlist editorial if album is empty
-		if editorialNote == "" && (track.PreType == "playlists" || track.PreType == "stations") {
+		if debug_mode && editorialNote != "" {
+			fmt.Printf("[DEBUG]  -> Using ALBUM editorial (type: Standard/Short/Name)\n")
+		}
+		// For playlists with PreferPlaylistEditorial=false, still try playlist as fallback
+		if editorialNote == "" && isPlaylist {
 			editorialNote = track.PlaylistData.Attributes.EditorialNotes.Standard
 			if editorialNote == "" {
 				editorialNote = track.PlaylistData.Attributes.EditorialNotes.Short
 			}
 			if editorialNote == "" {
 				editorialNote = track.PlaylistData.Attributes.EditorialNotes.Name
+			}
+			if debug_mode && editorialNote != "" {
+				fmt.Printf("[DEBUG]  -> Album editorial empty, using PLAYLIST editorial as fallback\n")
 			}
 		}
 	}
