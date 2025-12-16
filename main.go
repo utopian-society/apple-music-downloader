@@ -1855,10 +1855,17 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		Album:       track.Resp.Attributes.AlbumName,
 	}
 
-	// Add EditorialNotes as comment if available
-	if track.AlbumData.Attributes.EditorialNotes.Standard != "" {
+	// Add EditorialNotes as comment if available (try Standard, then Short, then Name)
+	editorialNote := track.AlbumData.Attributes.EditorialNotes.Standard
+	if editorialNote == "" {
+		editorialNote = track.AlbumData.Attributes.EditorialNotes.Short
+	}
+	if editorialNote == "" {
+		editorialNote = track.AlbumData.Attributes.EditorialNotes.Name
+	}
+	if editorialNote != "" {
 		reHTML := regexp.MustCompile("<[^>]*>")
-		textWithoutHTML := reHTML.ReplaceAllString(track.AlbumData.Attributes.EditorialNotes.Standard, "")
+		textWithoutHTML := reHTML.ReplaceAllString(editorialNote, "")
 		reNewlines := regexp.MustCompile(`\n{2,}`)
 		cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
 		t.Comment = strings.TrimSpace(cleanComment)
@@ -1887,13 +1894,22 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.TrackTotal = int16(track.TaskTotal)
 		t.Album = track.PlaylistData.Attributes.Name
 		t.AlbumArtist = track.PlaylistData.Attributes.ArtistName
-		// Add playlist editorial notes
-		if track.PlaylistData.Attributes.EditorialNotes.Standard != "" && t.Comment == "" {
-			reHTML := regexp.MustCompile("<[^>]*>")
-			textWithoutHTML := reHTML.ReplaceAllString(track.PlaylistData.Attributes.EditorialNotes.Standard, "")
-			reNewlines := regexp.MustCompile(`\n{2,}`)
-			cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
-			t.Comment = strings.TrimSpace(cleanComment)
+		// Add playlist editorial notes (try Standard, then Short, then Name)
+		if t.Comment == "" {
+			playlistNote := track.PlaylistData.Attributes.EditorialNotes.Standard
+			if playlistNote == "" {
+				playlistNote = track.PlaylistData.Attributes.EditorialNotes.Short
+			}
+			if playlistNote == "" {
+				playlistNote = track.PlaylistData.Attributes.EditorialNotes.Name
+			}
+			if playlistNote != "" {
+				reHTML := regexp.MustCompile("<[^>]*>")
+				textWithoutHTML := reHTML.ReplaceAllString(playlistNote, "")
+				reNewlines := regexp.MustCompile(`\n{2,}`)
+				cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
+				t.Comment = strings.TrimSpace(cleanComment)
+			}
 		}
 	} else if (track.PreType == "playlists" || track.PreType == "stations") && Config.UseSongInfoForPlaylist {
 		t.DiscTotal = int16(track.DiscTotal)
@@ -1910,20 +1926,36 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.Publisher = track.AlbumData.Attributes.RecordLabel
 		// Add playlist editorial notes first (preferred), then fall back to album editorial notes
 		if t.Comment == "" {
-			// Try playlist editorial notes first
-			if track.PlaylistData.Attributes.EditorialNotes.Standard != "" {
+			// Try playlist editorial notes first (Standard -> Short -> Name)
+			playlistNote := track.PlaylistData.Attributes.EditorialNotes.Standard
+			if playlistNote == "" {
+				playlistNote = track.PlaylistData.Attributes.EditorialNotes.Short
+			}
+			if playlistNote == "" {
+				playlistNote = track.PlaylistData.Attributes.EditorialNotes.Name
+			}
+			if playlistNote != "" {
 				reHTML := regexp.MustCompile("<[^>]*>")
-				textWithoutHTML := reHTML.ReplaceAllString(track.PlaylistData.Attributes.EditorialNotes.Standard, "")
+				textWithoutHTML := reHTML.ReplaceAllString(playlistNote, "")
 				reNewlines := regexp.MustCompile(`\n{2,}`)
 				cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
 				t.Comment = strings.TrimSpace(cleanComment)
-			} else if track.AlbumData.Attributes.EditorialNotes.Standard != "" {
+			} else {
 				// Fall back to album editorial notes if playlist notes don't exist
-				reHTML := regexp.MustCompile("<[^>]*>")
-				textWithoutHTML := reHTML.ReplaceAllString(track.AlbumData.Attributes.EditorialNotes.Standard, "")
-				reNewlines := regexp.MustCompile(`\n{2,}`)
-				cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
-				t.Comment = strings.TrimSpace(cleanComment)
+				albumNote := track.AlbumData.Attributes.EditorialNotes.Standard
+				if albumNote == "" {
+					albumNote = track.AlbumData.Attributes.EditorialNotes.Short
+				}
+				if albumNote == "" {
+					albumNote = track.AlbumData.Attributes.EditorialNotes.Name
+				}
+				if albumNote != "" {
+					reHTML := regexp.MustCompile("<[^>]*>")
+					textWithoutHTML := reHTML.ReplaceAllString(albumNote, "")
+					reNewlines := regexp.MustCompile(`\n{2,}`)
+					cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
+					t.Comment = strings.TrimSpace(cleanComment)
+				}
 			}
 		}
 	} else {
@@ -1939,13 +1971,22 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.Date = track.AlbumData.Attributes.ReleaseDate
 		t.Copyright = track.AlbumData.Attributes.Copyright
 		t.Publisher = track.AlbumData.Attributes.RecordLabel
-		// Add album editorial notes for regular albums
-		if track.AlbumData.Attributes.EditorialNotes.Standard != "" && t.Comment == "" {
-			reHTML := regexp.MustCompile("<[^>]*>")
-			textWithoutHTML := reHTML.ReplaceAllString(track.AlbumData.Attributes.EditorialNotes.Standard, "")
-			reNewlines := regexp.MustCompile(`\n{2,}`)
-			cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
-			t.Comment = strings.TrimSpace(cleanComment)
+		// Add album editorial notes for regular albums (Standard -> Short -> Name)
+		if t.Comment == "" {
+			albumNote := track.AlbumData.Attributes.EditorialNotes.Standard
+			if albumNote == "" {
+				albumNote = track.AlbumData.Attributes.EditorialNotes.Short
+			}
+			if albumNote == "" {
+				albumNote = track.AlbumData.Attributes.EditorialNotes.Name
+			}
+			if albumNote != "" {
+				reHTML := regexp.MustCompile("<[^>]*>")
+				textWithoutHTML := reHTML.ReplaceAllString(albumNote, "")
+				reNewlines := regexp.MustCompile(`\n{2,}`)
+				cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
+				t.Comment = strings.TrimSpace(cleanComment)
+			}
 		}
 	}
 

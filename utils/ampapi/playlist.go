@@ -129,6 +129,7 @@ type PlaylistRespData struct {
 		EditorialNotes struct {
 			Standard string `json:"standard"`
 			Short    string `json:"short"`
+			Name     string `json:"name"`
 		} `json:"editorialNotes"`
 		EditorialVideo struct {
 			MotionTall struct {

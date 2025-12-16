@@ -317,10 +317,17 @@ func WriteMP4Tags(trackPath, lrc string, meta *ampapi.AlbumResp, trackNum, track
 		Lyrics:      lrc,
 	}
 
-	// Add EditorialNotes as comment if available
-	if meta.Data[0].Attributes.EditorialNotes.Standard != "" {
+	// Add EditorialNotes as comment if available (Standard -> Short -> Name)
+	editorialNote := meta.Data[0].Attributes.EditorialNotes.Standard
+	if editorialNote == "" {
+		editorialNote = meta.Data[0].Attributes.EditorialNotes.Short
+	}
+	if editorialNote == "" {
+		editorialNote = meta.Data[0].Attributes.EditorialNotes.Name
+	}
+	if editorialNote != "" {
 		reHTML := regexp.MustCompile("<[^>]*>")
-		textWithoutHTML := reHTML.ReplaceAllString(meta.Data[0].Attributes.EditorialNotes.Standard, "")
+		textWithoutHTML := reHTML.ReplaceAllString(editorialNote, "")
 		reNewlines := regexp.MustCompile(`\n{2,}`)
 		cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
 		t.Comment = strings.TrimSpace(cleanComment)
