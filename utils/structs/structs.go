@@ -39,6 +39,7 @@ type ConfigSet struct {
 	LimitMax                   int    `yaml:"limit-max"`
 	UseSongInfoForPlaylist     bool   `yaml:"use-songinfo-for-playlist"`
 	DlAlbumcoverForPlaylist    bool   `yaml:"dl-albumcover-for-playlist"`
+	PreferPlaylistEditorial    bool   `yaml:"prefer-playlist-editorial"`
 	MVAudioType                string `yaml:"mv-audio-type"`
 	MVMax                      int    `yaml:"mv-max"`
 	DownloadMusicVideo         bool   `yaml:"download-music-video"`

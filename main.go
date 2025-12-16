@@ -1856,12 +1856,46 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 	}
 
 	// Add EditorialNotes as comment if available (try Standard, then Short, then Name)
-	editorialNote := track.AlbumData.Attributes.EditorialNotes.Standard
-	if editorialNote == "" {
-		editorialNote = track.AlbumData.Attributes.EditorialNotes.Short
-	}
-	if editorialNote == "" {
-		editorialNote = track.AlbumData.Attributes.EditorialNotes.Name
+	// For playlists/stations: use playlist editorial if PreferPlaylistEditorial is true, otherwise use album editorial
+	var editorialNote string
+	if (track.PreType == "playlists" || track.PreType == "stations") && Config.PreferPlaylistEditorial {
+		// Prefer playlist editorial notes
+		editorialNote = track.PlaylistData.Attributes.EditorialNotes.Standard
+		if editorialNote == "" {
+			editorialNote = track.PlaylistData.Attributes.EditorialNotes.Short
+		}
+		if editorialNote == "" {
+			editorialNote = track.PlaylistData.Attributes.EditorialNotes.Name
+		}
+		// Fall back to album editorial if playlist editorial is empty
+		if editorialNote == "" {
+			editorialNote = track.AlbumData.Attributes.EditorialNotes.Standard
+			if editorialNote == "" {
+				editorialNote = track.AlbumData.Attributes.EditorialNotes.Short
+			}
+			if editorialNote == "" {
+				editorialNote = track.AlbumData.Attributes.EditorialNotes.Name
+			}
+		}
+	} else {
+		// Use album editorial notes (default behavior for albums, or playlists with PreferPlaylistEditorial=false)
+		editorialNote = track.AlbumData.Attributes.EditorialNotes.Standard
+		if editorialNote == "" {
+			editorialNote = track.AlbumData.Attributes.EditorialNotes.Short
+		}
+		if editorialNote == "" {
+			editorialNote = track.AlbumData.Attributes.EditorialNotes.Name
+		}
+		// For playlists with PreferPlaylistEditorial=false, fall back to playlist editorial if album is empty
+		if editorialNote == "" && (track.PreType == "playlists" || track.PreType == "stations") {
+			editorialNote = track.PlaylistData.Attributes.EditorialNotes.Standard
+			if editorialNote == "" {
+				editorialNote = track.PlaylistData.Attributes.EditorialNotes.Short
+			}
+			if editorialNote == "" {
+				editorialNote = track.PlaylistData.Attributes.EditorialNotes.Name
+			}
+		}
 	}
 	if editorialNote != "" {
 		reHTML := regexp.MustCompile("<[^>]*>")
@@ -1894,23 +1928,6 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.TrackTotal = int16(track.TaskTotal)
 		t.Album = track.PlaylistData.Attributes.Name
 		t.AlbumArtist = track.PlaylistData.Attributes.ArtistName
-		// Add playlist editorial notes (try Standard, then Short, then Name)
-		if t.Comment == "" {
-			playlistNote := track.PlaylistData.Attributes.EditorialNotes.Standard
-			if playlistNote == "" {
-				playlistNote = track.PlaylistData.Attributes.EditorialNotes.Short
-			}
-			if playlistNote == "" {
-				playlistNote = track.PlaylistData.Attributes.EditorialNotes.Name
-			}
-			if playlistNote != "" {
-				reHTML := regexp.MustCompile("<[^>]*>")
-				textWithoutHTML := reHTML.ReplaceAllString(playlistNote, "")
-				reNewlines := regexp.MustCompile(`\n{2,}`)
-				cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
-				t.Comment = strings.TrimSpace(cleanComment)
-			}
-		}
 	} else if (track.PreType == "playlists" || track.PreType == "stations") && Config.UseSongInfoForPlaylist {
 		t.DiscTotal = int16(track.DiscTotal)
 		t.TrackTotal = int16(track.AlbumData.Attributes.TrackCount)
@@ -1924,40 +1941,6 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.Date = track.AlbumData.Attributes.ReleaseDate
 		t.Copyright = track.AlbumData.Attributes.Copyright
 		t.Publisher = track.AlbumData.Attributes.RecordLabel
-		// Add playlist editorial notes first (preferred), then fall back to album editorial notes
-		if t.Comment == "" {
-			// Try playlist editorial notes first (Standard -> Short -> Name)
-			playlistNote := track.PlaylistData.Attributes.EditorialNotes.Standard
-			if playlistNote == "" {
-				playlistNote = track.PlaylistData.Attributes.EditorialNotes.Short
-			}
-			if playlistNote == "" {
-				playlistNote = track.PlaylistData.Attributes.EditorialNotes.Name
-			}
-			if playlistNote != "" {
-				reHTML := regexp.MustCompile("<[^>]*>")
-				textWithoutHTML := reHTML.ReplaceAllString(playlistNote, "")
-				reNewlines := regexp.MustCompile(`\n{2,}`)
-				cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
-				t.Comment = strings.TrimSpace(cleanComment)
-			} else {
-				// Fall back to album editorial notes if playlist notes don't exist
-				albumNote := track.AlbumData.Attributes.EditorialNotes.Standard
-				if albumNote == "" {
-					albumNote = track.AlbumData.Attributes.EditorialNotes.Short
-				}
-				if albumNote == "" {
-					albumNote = track.AlbumData.Attributes.EditorialNotes.Name
-				}
-				if albumNote != "" {
-					reHTML := regexp.MustCompile("<[^>]*>")
-					textWithoutHTML := reHTML.ReplaceAllString(albumNote, "")
-					reNewlines := regexp.MustCompile(`\n{2,}`)
-					cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
-					t.Comment = strings.TrimSpace(cleanComment)
-				}
-			}
-		}
 	} else {
 		t.DiscTotal = int16(track.DiscTotal)
 		t.TrackTotal = int16(track.AlbumData.Attributes.TrackCount)
@@ -1971,23 +1954,6 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.Date = track.AlbumData.Attributes.ReleaseDate
 		t.Copyright = track.AlbumData.Attributes.Copyright
 		t.Publisher = track.AlbumData.Attributes.RecordLabel
-		// Add album editorial notes for regular albums (Standard -> Short -> Name)
-		if t.Comment == "" {
-			albumNote := track.AlbumData.Attributes.EditorialNotes.Standard
-			if albumNote == "" {
-				albumNote = track.AlbumData.Attributes.EditorialNotes.Short
-			}
-			if albumNote == "" {
-				albumNote = track.AlbumData.Attributes.EditorialNotes.Name
-			}
-			if albumNote != "" {
-				reHTML := regexp.MustCompile("<[^>]*>")
-				textWithoutHTML := reHTML.ReplaceAllString(albumNote, "")
-				reNewlines := regexp.MustCompile(`\n{2,}`)
-				cleanComment := reNewlines.ReplaceAllString(textWithoutHTML, "\n")
-				t.Comment = strings.TrimSpace(cleanComment)
-			}
-		}
 	}
 
 	if track.Resp.Attributes.ContentRating == "explicit" {

@@ -46,7 +46,9 @@ apple-master-choice : "[M]"
 #if set true,for playlst,will use songinfo for meta #albumname track disk
 use-songinfo-for-playlist: false
 #if set true,will download album cover for playlist
-dl-albumcover-for-playlist: false
+dl-albumcover-for-playlist: true
+#if set true, for playlist downloads, use playlist editorial notes instead of song/album editorial notes for comment metadata
+prefer-playlist-editorial: true
 mv-audio-type: atmos  #atmos ac3 aac
 mv-max: 2160
 download-music-video: true  # true = download music videos (more disk space; may require ffmpeg), false = skip
