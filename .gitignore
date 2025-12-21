@@ -1,5 +1,7 @@
 *
 !.gitignore
+!.github/
+!.github/**
 !agent.js
 !agent-arm64.js
 !go.mod
@@ -8,3 +10,11 @@
 !README.md
 !utils/
 !utils/**
+!Dockerfile
+!config.yaml
+!build.sh
+!batch_example.txt
+!docs/
+!docs/**
+!install_ccextractor.sh
+!install_ccextractor_simple.sh
