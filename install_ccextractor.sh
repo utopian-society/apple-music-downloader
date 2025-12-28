@@ -8,7 +8,7 @@ echo "========================================="
 
 # Install dependencies
 echo "[1/6] Installing build dependencies..."
-sudo apt install -y git cmake gcc g++ pkg-config libglew-dev libglfw3-dev tesseract-ocr libtesseract-dev libleptonica-dev curl
+sudo apt install -y git cmake gcc g++ pkg-config libglew-dev libglfw3-dev tesseract-ocr libtesseract-dev libleptonica-dev curl libclang-dev
 
 if [ $? -ne 0 ]; then
     echo "Failed to install dependencies"
@@ -20,10 +20,20 @@ echo ""
 echo "[2/6] Installing Rust/Cargo..."
 if ! command -v cargo &> /dev/null; then
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+fi
+
+# Source cargo environment
+if [ -f "$HOME/.cargo/env" ]; then
     source "$HOME/.cargo/env"
-    export PATH="$HOME/.cargo/bin:$PATH"
+fi
+export PATH="$HOME/.cargo/bin:$PATH"
+
+# Update Rust to ensure it meets CCExtractor's MSRV (1.87.0+)
+echo "Updating Rust to latest stable version..."
+if command -v rustup &> /dev/null; then
+    rustup update stable
 else
-    echo "Rust/Cargo already installed"
+    echo "Warning: rustup not found, skipping update"
 fi
 
 # Verify cargo is available
