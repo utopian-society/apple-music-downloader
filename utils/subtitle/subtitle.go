@@ -1057,26 +1057,29 @@ func CleanSRTFile(filePath string) error {
 }
 
 // removeFormattingTags removes WebVTT and ASS formatting tags from subtitle content
+// NOTE: Positioning and alignment tags are preserved to prevent subtitles from defaulting to top-left
 func removeFormattingTags(content []byte) []byte {
 	text := string(content)
 
-	// Remove WebVTT/ASS positioning tags: {\an1} to {\an9}
-	text = regexp.MustCompile(`\{\\an\d\}`).ReplaceAllString(text, "")
+	// DO NOT remove positioning tags like {\an1} to {\an9} - they control subtitle position
+	// Removing them causes subtitles to default to top-left corner
 
-	// Remove other common ASS/WebVTT tags
-	text = regexp.MustCompile(`\{\\[^}]+\}`).ReplaceAllString(text, "")
+	// Remove other common ASS tags (but keep positioning-related ones like \an, \pos, \move)
+	// Only remove color, style, and decoration tags
+	text = regexp.MustCompile(`\{\\(?:c|1c|3c|4c|fs|fsp|bord|shad|be|blur|fe|r|fscx|fscy|fax|fay|org)[^}]*\}`).ReplaceAllString(text, "")
 
-	// Remove HTML-like tags: <b>, <i>, <u>, <font>, etc.
-	text = regexp.MustCompile(`<[^>]+>`).ReplaceAllString(text, "")
+	// Remove HTML-like tags: <b>, <i>, <u>, <font>, etc. (but keep positioning-related tags)
+	text = regexp.MustCompile(`<(?:b|i|u|s|font|span)[^>]*>`).ReplaceAllString(text, "")
+	text = regexp.MustCompile(`</(?:b|i|u|s|font|span)>`).ReplaceAllString(text, "")
 
 	// Remove WebVTT voice tags: <v Name>
 	text = regexp.MustCompile(`<v\s+[^>]+>`).ReplaceAllString(text, "")
 
-	// Remove WebVTT class tags: <c.className>
-	text = regexp.MustCompile(`<c\.[^>]+>`).ReplaceAllString(text, "")
+	// Remove WebVTT class tags: <c.className> (but keep cue settings like position, align, line, size)
+	text = regexp.MustCompile(`<c\.[\w-]+>`).ReplaceAllString(text, "")
+	text = regexp.MustCompile(`</c>`).ReplaceAllString(text, "")
 
-	// Remove positioning cues like 'position:' and 'align:'
-	text = regexp.MustCompile(`(?m)^.*(?:position|align|line|size):[^\n]*\n`).ReplaceAllString(text, "")
+	// DO NOT remove positioning cues like 'position:', 'align:', 'line:', 'size:' - they are essential
 
 	// Remove escape sequences like \h, \n, \t (literal backslash followed by letter)
 	text = strings.ReplaceAll(text, "\\h", "")

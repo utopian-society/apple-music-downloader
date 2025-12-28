@@ -2490,25 +2490,40 @@ func mvDownloader(adamID string, saveDir string, token string, storefront string
 	// Now create the muxed video with or without subtitles
 	if subtitleExtracted {
 		// Mux video (without captions), audio, and SRT subtitles together
+		// Use FFmpeg for subtitle muxing as it properly positions subtitles at the bottom
 		fmt.Printf("MV Remuxing with subtitles...")
+
+		// First mux video and audio with MP4Box
+		tempMuxPath := filepath.Join(saveDir, fmt.Sprintf("%s_temp_mux.mp4", adamID))
 		muxCmd := exec.Command("MP4Box", "-itags", tagsString, "-quiet",
 			"-add", vidPathClean,
 			"-add", audPath,
-			"-add", fmt.Sprintf("%s:lang=en:name=English:group=2:hdlr=sbtl", tempSubtitlePath),
-			"-keep-utc", "-new", mvOutPath)
+			"-keep-utc", "-new", tempMuxPath)
 
 		if err := muxCmd.Run(); err != nil {
-			fmt.Printf("\r[WARNING] MV mux with subtitles failed: %v\n", err)
-			fmt.Printf("Retrying without subtitles...\n")
-			// Fallback: mux without subtitles
-			muxCmd = exec.Command("MP4Box", "-itags", tagsString, "-quiet",
-				"-add", vidPathClean,
-				"-add", audPath, "-keep-utc", "-new", mvOutPath)
-			if err := muxCmd.Run(); err != nil {
-				fmt.Printf("MV mux failed: %v\n", err)
-				return err
-			}
+			fmt.Printf("\r[WARNING] MV mux failed: %v\n", err)
+			return err
 		}
+
+		// Then use FFmpeg to add subtitles with proper positioning (mov_text codec positions at bottom)
+		subMuxCmd := exec.Command(Config.FFmpegPath,
+			"-i", tempMuxPath,
+			"-i", tempSubtitlePath,
+			"-c:v", "copy",
+			"-c:a", "copy",
+			"-c:s", "mov_text",
+			"-metadata:s:s:0", "language=eng",
+			"-y",
+			mvOutPath)
+
+		if err := subMuxCmd.Run(); err != nil {
+			fmt.Printf("\r[WARNING] Subtitle mux failed: %v, using video without subtitles\n", err)
+			// Fallback: just rename the temp file
+			os.Rename(tempMuxPath, mvOutPath)
+		} else {
+			os.Remove(tempMuxPath)
+		}
+
 		fmt.Printf("\r✓ MV Remuxed with subtitles\n")
 		// Clean up temp subtitle file
 		os.Remove(tempSubtitlePath)
