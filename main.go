@@ -481,9 +481,9 @@ func promptForQuality(item SearchResultItem, token string) (string, error) {
 // handleSearch manages the entire interactive search process.
 func handleSearch(searchType string, queryParts []string, token string) (string, error) {
 	query := strings.Join(queryParts, " ")
-	validTypes := map[string]bool{"album": true, "song": true, "artist": true, "music-video": true}
+	validTypes := map[string]bool{"album": true, "song": true, "artist": true, "music-video": true, "playlist": true}
 	if !validTypes[searchType] {
-		return "", fmt.Errorf("invalid search type: %s. Use 'album', 'song', 'artist', or 'music-video'", searchType)
+		return "", fmt.Errorf("invalid search type: %s. Use 'album', 'song', 'artist', 'music-video', or 'playlist'", searchType)
 	}
 
 	fmt.Printf("Searching for %ss: \"%s\" in storefront \"%s\"\n", searchType, query, Config.Storefront)
@@ -495,6 +495,8 @@ func handleSearch(searchType string, queryParts []string, token string) (string,
 	apiSearchType := searchType + "s"
 	if searchType == "music-video" {
 		apiSearchType = "music-videos"
+	} else if searchType == "playlist" {
+		apiSearchType = "playlists"
 	}
 
 	for {
@@ -565,6 +567,18 @@ func handleSearch(searchType string, queryParts []string, token string) (string,
 				}
 				hasNext = searchResp.Results.MusicVideos.Next != ""
 			}
+		case "playlist":
+			if searchResp.Results.Playlists != nil {
+				for _, item := range searchResp.Results.Playlists.Data {
+					curatorName := item.Attributes.CuratorName
+					if curatorName == "" {
+						curatorName = "Apple Music"
+					}
+					displayOptions = append(displayOptions, fmt.Sprintf("%s - %s", item.Attributes.Name, curatorName))
+					items = append(items, SearchResultItem{Type: "Playlist", URL: item.Attributes.URL, ID: item.ID})
+				}
+				hasNext = searchResp.Results.Playlists.Next != ""
+			}
 		}
 
 		if len(items) == 0 && offset == 0 {
@@ -619,8 +633,8 @@ func handleSearch(searchType string, queryParts []string, token string) (string,
 		if err != nil {
 			return "", fmt.Errorf("could not process quality selection: %w", err)
 		}
-		if quality == "" { // User cancelled quality selection
-			fmt.Println("Selection cancelled.")
+		if quality == "" { // User canceled quality selection
+			fmt.Println("Selection canceled.")
 			return "", nil
 		}
 
@@ -2228,7 +2242,7 @@ func main() {
 	}
 	var search_type string
 	var batch_files []string
-	pflag.StringVar(&search_type, "search", "", "Search for 'album', 'song', 'artist', or 'music-video'. Provide query after flags.")
+	pflag.StringVar(&search_type, "search", "", "Search for 'album', 'song', 'artist', 'music-video', or 'playlist'. Provide query after flags.")
 	pflag.StringArrayVar(&batch_files, "batch", []string{}, "Path(s) to TXT file(s) containing album/playlist URLs (one per line). Can be specified multiple times.")
 	pflag.BoolVar(&dl_atmos, "atmos", false, "Enable atmos download mode")
 	pflag.BoolVar(&dl_aac, "aac", false, "Enable adm-aac download mode")
@@ -2248,7 +2262,7 @@ func main() {
 
 	pflag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] [url1 url2 ...]\n", "[main | main.exe | go run main.go]")
-		fmt.Fprintf(os.Stderr, "Search Usage: %s --search [album|song|artist|music-video] [query]\n", "[main | main.exe | go run main.go]")
+		fmt.Fprintf(os.Stderr, "Search Usage: %s --search [album|song|artist|music-video|playlist] [query]\n", "[main | main.exe | go run main.go]")
 		fmt.Fprintf(os.Stderr, "Batch Usage: %s --batch file1.txt --batch file2.txt\n", "[main | main.exe | go run main.go]")
 		fmt.Fprintf(os.Stderr, "Lyrics Usage: %s --lyrics [url]\n", "[main | main.exe | go run main.go]")
 		fmt.Fprintf(os.Stderr, "Batch Usage (multiple files): %s --batch file1.txt file2.txt file3.txt\n", "[main | main.exe | go run main.go]")
