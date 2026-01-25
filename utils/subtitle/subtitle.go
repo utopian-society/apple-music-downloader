@@ -698,17 +698,24 @@ func ExtractClosedCaptionsFromMP4(videoPath, outputPath, ffmpegPath string) erro
 						}
 					}
 				}
-				_ = os.Remove(tempVttPath)
 			}
 		}
+		// Always clean up temp VTT file regardless of cmd.Run() result
+		_ = os.Remove(tempVttPath)
 	}
 
 	// Try alternative methods if direct extraction failed
 	err = extractClosedCaptionsAlternative(videoPath, outputPath, ffmpegPath)
 
-	// Final check: if file was created with any content during any attempt, consider it success
-	if info, statErr := os.Stat(outputPath); statErr == nil && info.Size() > 0 {
+	// Final check: if file was created with meaningful content (>100 bytes), consider it success
+	// Use same threshold as other checks to avoid false positives from empty/header-only files
+	if info, statErr := os.Stat(outputPath); statErr == nil && info.Size() > 100 {
 		return nil
+	}
+
+	// Clean up any small/empty output file that may have been created
+	if info, statErr := os.Stat(outputPath); statErr == nil && info.Size() <= 100 {
+		_ = os.Remove(outputPath)
 	}
 
 	return err
@@ -780,9 +787,10 @@ func extractClosedCaptionsAlternative(videoPath, outputPath, ffmpegPath string) 
 					}
 				}
 			}
-			os.Remove(tempVttPath)
 		}
 	}
+	// Always clean up temp VTT file regardless of cmd.Run() result
+	os.Remove(tempVttPath)
 
 	// Try ccextractor if all FFmpeg methods fail
 	return extractWithCCExtractor(videoPath, outputPath)
@@ -790,19 +798,38 @@ func extractClosedCaptionsAlternative(videoPath, outputPath, ffmpegPath string) 
 
 // extractWithCCExtractor uses CCExtractor tool if available
 func extractWithCCExtractor(videoPath, outputPath string) error {
-	// Check if ccextractor is available
-	cmd := exec.Command("ccextractor", "--version")
-	var versionOut bytes.Buffer
-	cmd.Stdout = &versionOut
-	cmd.Stderr = &versionOut
+	// Try to find ccextractor binary in multiple locations
+	ccextractorPaths := []string{
+		"ccextractor", // System PATH
+		"/usr/bin/ccextractor",
+		"/usr/local/bin/ccextractor",
+	}
 
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("all closed caption extraction methods failed (ccextractor not installed)")
+	// Also check common build locations relative to home directory
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		ccextractorPaths = append(ccextractorPaths,
+			homeDir+"/ccextractor/linux/ccextractor",
+			homeDir+"/ccextractor/ccextractor",
+			homeDir+"/bin/ccextractor",
+		)
+	}
+
+	var ccextractorPath string
+	for _, path := range ccextractorPaths {
+		cmd := exec.Command(path, "-h")
+		if err := cmd.Run(); err == nil {
+			ccextractorPath = path
+			break
+		}
+	}
+
+	if ccextractorPath == "" {
+		return fmt.Errorf("all closed caption extraction methods failed (ccextractor not found)")
 	}
 
 	// CCExtractor syntax: ccextractor [options] inputfile [-o outputfilename]
 	// For EIA-608: ccextractor input.mp4 -o output.srt
-	cmd = exec.Command("ccextractor",
+	cmd := exec.Command(ccextractorPath,
 		videoPath,        // Input file
 		"-o", outputPath) // Output file
 
