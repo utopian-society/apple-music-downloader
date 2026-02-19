@@ -28,7 +28,6 @@ require (
 	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/term v0.38.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
-	golang.org/x/time v0.8.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
 
@@ -36,7 +35,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/beevik/etree v1.6.0
 	github.com/fatih/color v1.18.0
-	github.com/go-resty/resty/v2 v2.16.5
+	github.com/go-resty/resty/v2 v2.17.2
 	github.com/itouakirai/mp4ff v0.0.0-20250930132656-98812935a1c7
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/zhaarey/go-mp4tag v0.0.0-20251021234435-2c70f6b1bf76
