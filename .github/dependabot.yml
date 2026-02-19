@@ -10,15 +10,6 @@ updates:
       - "dependencies"
       - "go"
 
-  # npm (agent.js / agent-arm64.js)
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    labels:
-      - "dependencies"
-      - "javascript"
-
   # Docker image base dependencies
   - package-ecosystem: "docker"
     directory: "/"
