@@ -19,6 +19,7 @@ type ConfigSet struct {
 	AlacSaveFolder             string `yaml:"alac-save-folder"`
 	AtmosSaveFolder            string `yaml:"atmos-save-folder"`
 	AacSaveFolder              string `yaml:"aac-save-folder"`
+	MVSaveFolder               string `yaml:"mv-save-folder"`
 	AlbumFolderFormat          string `yaml:"album-folder-format"`
 	PlaylistFolderFormat       string `yaml:"playlist-folder-format"`
 	ArtistFolderFormat         string `yaml:"artist-folder-format"`
@@ -49,8 +50,11 @@ type ConfigSet struct {
 	ConvertSkipIfSourceMatch   bool   `yaml:"convert-skip-if-source-matches"`
 	FFmpegPath                 string `yaml:"ffmpeg-path"`
 	ConvertExtraArgs           string `yaml:"convert-extra-args"`
+	ConvertWithMetadata        bool   `yaml:"convert-with-metadata"`
 	ConvertWarnLossyToLossless bool   `yaml:"convert-warn-lossy-to-lossless"`
 	ConvertSkipLossyToLossless bool   `yaml:"convert-skip-lossy-to-lossless"`
+	ConvertCheckBadALAC        bool   `yaml:"convert-check-bad-alac"`
+	ConvertDeleteBadALAC       bool   `yaml:"convert-delete-bad-alac"`
 }
 
 type Counter struct {
