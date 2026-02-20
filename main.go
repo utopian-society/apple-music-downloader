@@ -661,19 +661,40 @@ func isLossySource(ext string, codec string) bool {
 }
 
 // CONVERSION FEATURE: Build ffmpeg arguments for desired target.
-func buildFFmpegArgs(ffmpegPath, inPath, outPath, targetFmt, extraArgs string) ([]string, error) {
-	args := []string{"-y", "-i", inPath, "-loglevel", "error", "-map_metadata"}
+func buildFFmpegArgs(ffmpegPath, inPath, outPath, targetFmt, extraArgs, coverPath string) ([]string, error) {
+	args := []string{"-y", "-i", inPath}
+
+	// Check if cover art should be embedded (supported for flac, mp3, opus — not wav)
+	embedCover := false
+	if coverPath != "" && targetFmt != "wav" && targetFmt != "copy" {
+		if _, err := os.Stat(coverPath); err == nil {
+			args = append(args, "-i", coverPath)
+			embedCover = true
+		}
+	}
+
+	args = append(args, "-loglevel", "error", "-map_metadata")
 	if Config.ConvertWithMetadata {
 		args = append(args, "0")
 	} else {
 		args = append(args, "-1")
 	}
+
+	if embedCover {
+		args = append(args, "-map", "0:a", "-map", "1:v", "-c:v", "copy", "-disposition:v:0", "attached_pic")
+	}
+
 	switch targetFmt {
 	case "flac":
 		args = append(args, "-c:a", "flac")
 	case "mp3":
 		// VBR quality 2 ~ high quality
 		args = append(args, "-c:a", "libmp3lame", "-qscale:a", "2")
+		if embedCover {
+			args = append(args, "-id3v2_version", "3",
+				"-metadata:s:v", "title=Album cover",
+				"-metadata:s:v", "comment=Cover (front)")
+		}
 	case "opus":
 		// Medium/high quality
 		args = append(args, "-c:a", "libopus", "-b:a", "192k", "-vbr", "on")
@@ -740,7 +761,7 @@ func convertIfNeeded(track *task.Track) {
 		return
 	}
 
-	args, err := buildFFmpegArgs(Config.FFmpegPath, srcPath, outPath, targetFmt, Config.ConvertExtraArgs)
+	args, err := buildFFmpegArgs(Config.FFmpegPath, srcPath, outPath, targetFmt, Config.ConvertExtraArgs, track.CoverPath)
 	if err != nil {
 		fmt.Println("Conversion config error:", err)
 		return
@@ -789,6 +810,20 @@ func convertIfNeeded(track *task.Track) {
 				fmt.Println("Original removed.")
 			}
 
+			// Remove associated lyrics files (.lrc, .ttml) only when save-lrc-file is disabled
+			if !Config.SaveLrcFile {
+				srcBase := strings.TrimSuffix(srcPath, ext)
+				for _, lrcExt := range []string{".lrc", ".ttml"} {
+					lrcPath := srcBase + lrcExt
+					if _, err := os.Stat(lrcPath); err == nil {
+						if err := os.Remove(lrcPath); err != nil {
+							fmt.Printf("Failed to remove lyrics file %s: %v\n", filepath.Base(lrcPath), err)
+						} else {
+							fmt.Printf("Lyrics file removed: %s\n", filepath.Base(lrcPath))
+						}
+					}
+				}
+			}
 		}
 		track.SavePath = outPath
 		track.SaveName = filepath.Base(outPath)
