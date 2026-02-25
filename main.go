@@ -2600,7 +2600,7 @@ func mvDownloader(adamID string, saveDir string, token string, storefront string
 	// Check if video has embedded closed captions (check vidPath, not tempMvPath)
 	hasCC, err := subtitle.HasClosedCaptions(vidPath, Config.FFmpegPath)
 	if err == nil && hasCC {
-		fmt.Printf("\rExtracting closed captions...")
+		fmt.Printf("\r\033[KExtracting closed captions...")
 		err = subtitle.ExtractClosedCaptionsFromMP4(vidPath, tempSubtitlePath, Config.FFmpegPath)
 		if err != nil {
 			// If extraction failed, don't treat this as having closed captions
@@ -2611,21 +2611,21 @@ func mvDownloader(adamID string, saveDir string, token string, storefront string
 				strings.Contains(err.Error(), "does not contain extractable") ||
 				strings.Contains(err.Error(), "all closed caption extraction methods failed") ||
 				strings.Contains(err.Error(), "all alternative extraction methods failed") {
-				fmt.Printf("\r                                                        \r") // Clear the line
+				fmt.Printf("\r\033[K") // Clear the line
 			} else {
-				fmt.Printf("\r[INFO] Could not extract closed captions: %v\n", err)
+				fmt.Printf("\r\033[K[INFO] Could not extract closed captions: %v\n", err)
 			}
 		} else {
 			// Clean up the extracted subtitles (remove formatting tags, duplicates)
 			err = subtitle.CleanSRTFile(tempSubtitlePath)
 			if err != nil {
-				fmt.Printf("\r[WARNING] Subtitle cleaning failed: %v\n", err)
+				fmt.Printf("\r\033[K[WARNING] Subtitle cleaning failed: %v\n", err)
 			}
 			subtitleExtracted = true
-			fmt.Printf("\r✓ Closed captions extracted successfully\n")
+			fmt.Printf("\r\033[K✓ Closed captions extracted successfully\n")
 		}
 	} else {
-		fmt.Printf("\r                                                        \r") // Clear the line - no need to show info if no subs
+		fmt.Printf("\r\033[K") // Clear the line - no need to show info if no subs
 	}
 
 	// Remove EIA-608 closed captions from video file if they exist
@@ -2643,11 +2643,11 @@ func mvDownloader(adamID string, saveDir string, token string, storefront string
 			vidPathClean)
 
 		if err := stripCmd.Run(); err != nil {
-			fmt.Printf("\r[WARNING] Failed to remove EIA-608 captions: %v\n", err)
+			fmt.Printf("\r\033[K[WARNING] Failed to remove EIA-608 captions: %v\n", err)
 			fmt.Printf("Will use original video file.\n")
 			vidPathClean = vidPath // Fallback to original
 		} else {
-			fmt.Printf("\r✓ EIA-608 captions removed successfully       \n")
+			fmt.Printf("\r\033[K✓ EIA-608 captions removed successfully\n")
 			defer os.Remove(vidPathClean) // Clean up the temp file
 		}
 	}
@@ -2666,7 +2666,7 @@ func mvDownloader(adamID string, saveDir string, token string, storefront string
 			"-keep-utc", "-new", tempMuxPath)
 
 		if err := muxCmd.Run(); err != nil {
-			fmt.Printf("\r[WARNING] MV mux failed: %v\n", err)
+			fmt.Printf("\r\033[K[WARNING] MV mux failed: %v\n", err)
 			return err
 		}
 
@@ -2682,14 +2682,14 @@ func mvDownloader(adamID string, saveDir string, token string, storefront string
 			mvOutPath)
 
 		if err := subMuxCmd.Run(); err != nil {
-			fmt.Printf("\r[WARNING] Subtitle mux failed: %v, using video without subtitles\n", err)
+			fmt.Printf("\r\033[K[WARNING] Subtitle mux failed: %v, using video without subtitles\n", err)
 			// Fallback: just rename the temp file
 			os.Rename(tempMuxPath, mvOutPath)
 		} else {
 			os.Remove(tempMuxPath)
 		}
 
-		fmt.Printf("\r✓ MV Remuxed with subtitles\n")
+		fmt.Printf("\r\033[K✓ MV Remuxed with subtitles\n")
 		// Clean up temp subtitle file
 		os.Remove(tempSubtitlePath)
 	} else {
@@ -2702,7 +2702,7 @@ func mvDownloader(adamID string, saveDir string, token string, storefront string
 			fmt.Printf("MV mux failed: %v\n", err)
 			return err
 		}
-		fmt.Printf("\rMV Remuxed.   \n")
+		fmt.Printf("\r\033[KMV Remuxed.\n")
 	}
 
 	// Append to AddedTracks

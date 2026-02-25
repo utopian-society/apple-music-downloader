@@ -490,12 +490,16 @@ func ExtMvData(keyAndUrls string, savePath string) error {
 	// 等待写入 Goroutine 完成所有写入和缓冲处理
 	writerWg.Wait()
 
+	// Properly finish the progress bar to clear its line
+	bar.Finish()
+	fmt.Print("\r\033[K") // Clear the current line completely
+
 	// 显式关闭文件（defer会再次调用，但重复关闭是安全的）
 	if err := tempFile.Close(); err != nil {
 		fmt.Printf("关闭临时文件失败: %v\n", err)
 		return err
 	}
-	fmt.Println("\nDownloaded.")
+	fmt.Println("Downloaded.")
 
 	cmd1 := exec.Command("mp4decrypt", "--key", key, tempFile.Name(), filepath.Base(savePath))
 	cmd1.Dir = filepath.Dir(savePath) //设置mp4decrypt的工作目录以解决中文路径错误
