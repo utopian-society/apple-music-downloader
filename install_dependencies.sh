@@ -28,6 +28,7 @@ git clone https://github.com/CCExtractor/ccextractor
 cd ccextractor/linux
 ./build
 sudo cp ccextractor /usr/local/bin/
+sudo chmod +x /usr/local/bin/ccextractor
 cd ../..
 
 # ── 3. Bento4 (mp4decrypt) ────────────────────────────────────────────────────
@@ -36,6 +37,7 @@ sudo apt install -y unzip wget
 wget https://www.bok.net/Bento4/binaries/Bento4-SDK-1-6-0-641.x86_64-unknown-linux.zip
 unzip Bento4-SDK-1-6-0-641.x86_64-unknown-linux.zip
 sudo cp Bento4-SDK-1-6-0-641.x86_64-unknown-linux/bin/mp4decrypt /usr/local/bin/
+sudo chmod +x /usr/local/bin/mp4decrypt
 rm -rf Bento4-SDK-1-6-0-641.x86_64-unknown-linux Bento4-SDK-1-6-0-641.x86_64-unknown-linux.zip
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
