@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# ── 0. FFmpeg ─────────────────────────────────────────────────────────────────
+sudo apt install -y ffmpeg
+
 # ── 1. GPAC ───────────────────────────────────────────────────────────────────
 sudo apt install -y git build-essential pkg-config cmake \
   libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev \
