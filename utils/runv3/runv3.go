@@ -18,7 +18,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/itouakirai/mp4ff/mp4"
+	"github.com/Eyevinn/mp4ff/mp4"
 
 	"encoding/json"
 	"net/http"
@@ -532,6 +532,7 @@ func DecryptMP4(r io.Reader, key []byte, w io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("failed to decrypt init: %w", err)
 	}
+	InjectElst(inMp4.Init, "")
 	if err = inMp4.Init.Encode(w); err != nil {
 		return fmt.Errorf("failed to write init: %w", err)
 	}
@@ -552,4 +553,38 @@ func DecryptMP4(r io.Reader, key []byte, w io.Writer) error {
 		}
 	}
 	return nil
+}
+
+// InjectElst adds an Edit List box to the init segment to skip encoder delay samples
+func InjectElst(init *mp4.InitSegment, codecName string) {
+	const encoderDelay = int64(2112)
+	needsElst := map[string]bool{
+		"alac":         true,
+		"ec3":          true,
+		"aac":          true,
+		"aac-he":       true,
+		"aac-binaural": true,
+		"aac-downmix":  true,
+		// "aac-lc" is intentionally absent
+	}
+	if !needsElst[codecName] {
+		return
+	}
+	for _, trak := range init.Moov.Traks {
+		elst := &mp4.ElstBox{
+			Version: 1,
+			Entries: []mp4.ElstEntry{
+				{
+					SegmentDuration:   0,
+					MediaTime:         encoderDelay,
+					MediaRateInteger:  1,
+					MediaRateFraction: 0,
+				},
+			},
+		}
+		edts := &mp4.EdtsBox{}
+		edts.AddChild(elst)
+		edts.Elst = append(edts.Elst, elst)
+		trak.AddChild(edts)
+	}
 }

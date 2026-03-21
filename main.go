@@ -1116,6 +1116,7 @@ func ripTrack(track *task.Track, token string, mediaUserToken string) {
 			counter.Error++
 			return
 		}
+		Config.CodecName = "aac-lc"
 		_, err := runv3.Run(track.ID, trackPath, token, mediaUserToken, false, "")
 		if err != nil {
 			fmt.Println("Failed to dl aac-lc:", err)
@@ -1132,6 +1133,14 @@ func ripTrack(track *task.Track, token string, mediaUserToken string) {
 			fmt.Println("[WARNING] Failed to extract info from manifest:", err)
 			counter.Unavailable++
 			return
+		}
+		// Set CodecName based on download type
+		if dl_atmos {
+			Config.CodecName = "ec3"
+		} else if dl_aac {
+			Config.CodecName = Config.AacType
+		} else {
+			Config.CodecName = "alac"
 		}
 		//边下载边解密
 		err = runv2.Run(track.ID, trackM3u8Url, trackPath, Config)
