@@ -3,7 +3,7 @@ module main
 go 1.24.0
 
 require (
-	github.com/Eyevinn/mp4ff v0.50.0
+	github.com/Eyevinn/mp4ff v0.51.0
 	github.com/aead/cmac v0.0.0-20160719120800-7af84192f0b1
 	github.com/grafov/m3u8 v0.11.1
 	github.com/schollz/progressbar/v3 v3.19.0
