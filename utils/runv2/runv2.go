@@ -38,7 +38,6 @@ func (b *TimedResponseBody) Read(p []byte) (int, error) {
 	if err != nil {
 		return n, err
 	}
-	// fmt.Printf("Read %d bytes, buffer size %d bytes", n, len(p))
 	if n >= b.threshold {
 		b.timer.Reset(b.timeout)
 	}
@@ -52,19 +51,16 @@ func Run(adamId string, playlistUrl string, outfile string, Config structs.Confi
 	timeout := time.Duration(optstimeout * uint(time.Millisecond))
 	header := make(http.Header)
 
-	// request media playlist
 	req, err := http.NewRequest("GET", playlistUrl, nil)
 	if err != nil {
 		return err
 	}
 	req.Header = header
-	// requesting an HLS playlist should be relatively fast, so we set the timeout directly on the client
 	do, err := (&http.Client{Timeout: timeout}).Do(req)
 	if err != nil {
 		return err
 	}
 
-	// parse m3u8
 	segments, mapURI, err := parseMediaPlaylist(do.Body)
 	if err != nil {
 		return err
@@ -77,7 +73,6 @@ func Run(adamId string, playlistUrl string, outfile string, Config structs.Confi
 		return errors.New("non-byterange playlists are currently unsupported")
 	}
 
-	// get URL to the actual file
 	parsedUrl, err := url.Parse(playlistUrl)
 	if err != nil {
 		return err
@@ -91,7 +86,6 @@ func Run(adamId string, playlistUrl string, outfile string, Config structs.Confi
 		return err
 	}
 
-	// request mp4
 	ctx, cancel := context.WithCancelCause(context.Background())
 	defer cancel(nil)
 	req, err = http.NewRequestWithContext(ctx, "GET", fileUrl.String(), nil)
@@ -103,8 +97,6 @@ func Run(adamId string, playlistUrl string, outfile string, Config structs.Confi
 	var body io.Reader
 	client := &http.Client{Timeout: timeout}
 	if optstimeout > 0 {
-		// create the timer before calling Do so that the timeout covers TCP handshake,
-		// TLS handshake, sending the request and receiving HTTP headers
 		timer := time.AfterFunc(timeout, func() { cancel(ErrTimeout) })
 		do, err = client.Do(req)
 		if err != nil {
@@ -153,14 +145,11 @@ func Run(adamId string, playlistUrl string, outfile string, Config structs.Confi
 
 	var totalLen int64
 	totalLen = do.ContentLength
-	// connect to decryptor
-	//addr := fmt.Sprintf("127.0.0.1:10020")
 	addr := Config.DecryptM3u8Port
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return err
 	}
-	//fmt.Print("Decrypting...\n")
 	defer Close(conn)
 
 	err = downloadAndDecryptFile(conn, body, outfile, adamId, segments, totalLen, Config)
@@ -210,8 +199,6 @@ func downloadAndDecryptFile(conn io.ReadWriter, in io.Reader, outfile string,
 		return err
 	}
 
-	// 'segment' in m3u8 == 'fragment' in mp4ff
-	//fmt.Println("Starting decryption...")
 	bar := progressbar.NewOptions64(totalLen,
 		progressbar.OptionClearOnFinish(),
 		progressbar.OptionSetElapsedTime(false),
@@ -240,14 +227,14 @@ func downloadAndDecryptFile(conn io.ReadWriter, in io.Reader, outfile string,
 			return err
 		}
 		if frag == nil {
-			// check offset against Content-Length?
 			break
 		}
-		// print progress
 
-		// if totalLen > 0 {
-		// 	fmt.Printf("%.2f%% of %d bytes\n", 100*float32(offset)/float32(totalLen), totalLen)
-		// }
+		// Fix broken DefaultSampleDescriptionIndex in moof/tfhd boxes.
+		// Some Apple Music tracks set this to 2 even when stsd only has 1 entry,
+		// causing MP4Box to reject the file with "Embed failed: exit status 1".
+		fixFragmentSampleDescriptionIndex(frag)
+
 		segment := playlistSegments[i]
 		if segment == nil {
 			return errors.New("segment number out of sync")
@@ -264,7 +251,6 @@ func downloadAndDecryptFile(conn io.ReadWriter, in io.Reader, outfile string,
 			}
 			SendString(rw, key.URI)
 		}
-		// flushes the buffer
 		err = DecryptFragment(frag, tracks, rw)
 		if err != nil {
 			return fmt.Errorf("decryptFragment: %w", err)
@@ -280,7 +266,6 @@ func downloadAndDecryptFile(conn io.ReadWriter, in io.Reader, outfile string,
 		return err
 	}
 	if totalLen <= MaxMemorySize {
-		// create output file
 		ofh, err := os.Create(outfile)
 		if err != nil {
 			return err
@@ -295,34 +280,67 @@ func downloadAndDecryptFile(conn io.ReadWriter, in io.Reader, outfile string,
 	return nil
 }
 
-// Remove boxes in the init segment that are known to cause compatibility issues
+// sanitizeInit removes boxes in the init segment that are known to cause
+// compatibility issues, and fixes broken sample description index references.
 func sanitizeInit(init *mp4.InitSegment) error {
 	traks := init.Moov.Traks
 	if len(traks) > 1 {
 		return errors.New("more than 1 track found")
 	}
+
+	stsd := traks[0].Mdia.Minf.Stbl.Stsd
+
 	// Remove duplicate ec-3 or alac boxes in stsd since some programs (e.g. cuetools) don't
 	// like it when there's more than 1 entry in stsd.
 	// Every audio track contains two of these boxes because two IVs are needed to decrypt the
 	// track. The two boxes become identical after removing encryption info.
-	stsd := traks[0].Mdia.Minf.Stbl.Stsd
-	if stsd.SampleCount == 1 {
-		return nil
-	}
 	if stsd.SampleCount > 2 {
 		return fmt.Errorf("expected only 1 or 2 entries in stsd, got %d", stsd.SampleCount)
 	}
-	children := stsd.Children
-	if children[0].Type() != children[1].Type() {
-		return errors.New("children in stsd are not of the same type")
+	if stsd.SampleCount == 2 {
+		children := stsd.Children
+		if children[0].Type() != children[1].Type() {
+			return errors.New("children in stsd are not of the same type")
+		}
+		stsd.Children = children[:1]
+		stsd.SampleCount = 1
 	}
-	stsd.Children = children[:1]
-	stsd.SampleCount = 1
+
+	// Fix broken DefaultSampleDescriptionIndex in trex boxes.
+	// Some Apple Music tracks (particularly from certain storefronts/labels) set
+	// DefaultSampleDescriptionIndex to 2 in the trex box even when stsd only has
+	// 1 sample description entry. This causes MP4Box to print:
+	//   "default sample description set to 2 but only 1 sample description(s), likely broken"
+	// and ultimately reject the file with "Embed failed: exit status 1".
+	if init.Moov.Mvex != nil {
+		maxIdx := uint32(stsd.SampleCount)
+		for _, trex := range init.Moov.Mvex.Trexs {
+			if trex != nil && trex.DefaultSampleDescriptionIndex > maxIdx {
+				trex.DefaultSampleDescriptionIndex = 1
+			}
+		}
+	}
+
 	return nil
 }
 
-// Workaround for m3u8 not supporting multiple keys - remove
-// PlayReady and Widevine
+// fixFragmentSampleDescriptionIndex corrects tfhd boxes in moof fragments that
+// reference a DefaultSampleDescriptionIndex beyond what stsd contains.
+// This mirrors the same fix applied to the init segment's trex boxes, but at
+// the per-fragment level. Without this, MP4Box still sees the bad index in the
+// moof and refuses to process the file.
+func fixFragmentSampleDescriptionIndex(frag *mp4.Fragment) {
+	if frag == nil || frag.Moof == nil {
+		return
+	}
+	for _, traf := range frag.Moof.Trafs {
+		if traf.Tfhd != nil && traf.Tfhd.HasSampleDescriptionIndex() && traf.Tfhd.SampleDescriptionIndex > 1 {
+			traf.Tfhd.SampleDescriptionIndex = 1
+		}
+	}
+}
+
+// Workaround for m3u8 not supporting multiple keys - remove PlayReady and Widevine
 func filterResponse(f io.Reader) (*bytes.Buffer, error) {
 	buf := &bytes.Buffer{}
 	scanner := bufio.NewScanner(f)
@@ -373,7 +391,6 @@ func parseMediaPlaylist(r io.ReadCloser) ([]*m3u8.MediaSegment, string, error) {
 	return mediaPlaylist.Segments, mapURI, nil
 }
 
-// pasing
 func ReadInitSegment(r io.Reader) (*mp4.InitSegment, uint64, error) {
 	var offset uint64 = 0
 	init := mp4.NewMP4Init()
@@ -392,7 +409,6 @@ func ReadInitSegment(r io.Reader) (*mp4.InitSegment, uint64, error) {
 	return init, offset, nil
 }
 
-// Get the next fragment. Returns nil and no error on EOF
 func ReadNextFragment(r io.Reader, offset uint64) (*mp4.Fragment, uint64, error) {
 	frag := mp4.NewFragment()
 	for {
@@ -404,7 +420,6 @@ func ReadNextFragment(r io.Reader, offset uint64) (*mp4.Fragment, uint64, error)
 			return nil, offset, err
 		}
 		boxType := box.Type()
-		// fmt.Printf("processing %s, box starts @ offset %d\n", boxType, offset)
 		offset += box.Size()
 		if boxType == "moof" || boxType == "emsg" || boxType == "prft" {
 			frag.AddChild(box)
@@ -416,16 +431,12 @@ func ReadNextFragment(r io.Reader, offset uint64) (*mp4.Fragment, uint64, error)
 		}
 		fmt.Printf("ignoring a %s box found mid-stream", boxType)
 	}
-	// only 1 mdat box in fragment, meaning that the box doesn't have a preceding moof box
 	if frag.Moof == nil {
 		return nil, offset, fmt.Errorf("more than one mdat box in fragment (box ends @ offset %d)", offset)
 	}
 	return frag, offset, nil
 }
 
-// Return a new slice of boxes with encryption-related sbgp and sgpd removed,
-// and the total number of bytes removed.
-// Non-encryption-related ones such as 'roll' are left untouched.
 func FilterSbgpSgpd(children []mp4.Box) ([]mp4.Box, uint64) {
 	var bytesRemoved uint64 = 0
 	remainingChildren := make([]mp4.Box, 0, len(children))
@@ -447,7 +458,6 @@ func FilterSbgpSgpd(children []mp4.Box) ([]mp4.Box, uint64) {
 	return remainingChildren, bytesRemoved
 }
 
-// Get decryption info for tracks from init segment and remove encryption-related boxes
 func TransformInit(init *mp4.InitSegment) (map[uint32]mp4.DecryptTrackInfo, error) {
 	di, err := mp4.DecryptInit(init)
 	tracks := make(map[uint32]mp4.DecryptTrackInfo, len(di.TrackInfos))
@@ -457,7 +467,6 @@ func TransformInit(init *mp4.InitSegment) (map[uint32]mp4.DecryptTrackInfo, erro
 	if err != nil {
 		return tracks, err
 	}
-	// remove encryption-related sbgp and sgpd
 	for _, trak := range init.Moov.Traks {
 		stbl := trak.Mdia.Minf.Stbl
 		stbl.Children, _ = FilterSbgpSgpd(stbl.Children)
@@ -465,8 +474,6 @@ func TransformInit(init *mp4.InitSegment) (map[uint32]mp4.DecryptTrackInfo, erro
 	return tracks, nil
 }
 
-// remote
-// Reset the loops on the script's end and close the connection
 func Close(conn io.WriteCloser) error {
 	defer conn.Close()
 	_, err := conn.Write([]byte{0, 0, 0, 0, 0})
@@ -478,7 +485,6 @@ func SwitchKeys(conn io.Writer) error {
 	return err
 }
 
-// Send id or keyUri
 func SendString(conn io.Writer, uri string) error {
 	_, err := conn.Write([]byte{byte(len(uri))})
 	if err != nil {
@@ -489,12 +495,7 @@ func SendString(conn io.Writer, uri string) error {
 }
 
 func cbcsFullSubsampleDecrypt(data []byte, conn *bufio.ReadWriter) error {
-	// Drops 4 last bits -> multiple of 16
-	// It wouldn't hurt to send the remaining bytes also because the decryption
-	// function would just return them as-is, but we're truncating the data here
-	// for clarity and interoperability
 	truncatedLen := len(data) & ^0xf
-	// send the whole chunk at once
 	err := binary.Write(conn, binary.LittleEndian, uint32(truncatedLen))
 	if err != nil {
 		return err
@@ -514,12 +515,10 @@ func cbcsFullSubsampleDecrypt(data []byte, conn *bufio.ReadWriter) error {
 func cbcsStripeDecrypt(data []byte, conn *bufio.ReadWriter, decryptBlockLen, skipBlockLen int) error {
 	size := len(data)
 
-	// block too small, ignore
 	if size < decryptBlockLen {
 		return nil
 	}
 
-	// number of encrypted blocks in this sample
 	count := ((size - decryptBlockLen) / (decryptBlockLen + skipBlockLen)) + 1
 	totalLen := count * decryptBlockLen
 
@@ -530,7 +529,7 @@ func cbcsStripeDecrypt(data []byte, conn *bufio.ReadWriter, decryptBlockLen, ski
 
 	pos := 0
 	for {
-		if size-pos < decryptBlockLen { // Leave the rest
+		if size-pos < decryptBlockLen {
 			break
 		}
 		_, err = conn.Write(data[pos : pos+decryptBlockLen])
@@ -566,20 +565,14 @@ func cbcsStripeDecrypt(data []byte, conn *bufio.ReadWriter, decryptBlockLen, ski
 	return nil
 }
 
-// Decryption function dispatcher
 func cbcsDecryptRaw(data []byte, conn *bufio.ReadWriter, decryptBlockLen, skipBlockLen int) error {
 	if skipBlockLen == 0 {
-		// Full encryption of subsamples
-		// e.g. Apple Music ALAC
 		return cbcsFullSubsampleDecrypt(data, conn)
 	} else {
-		// Pattern (stripe) encryption of subsamples
-		// e.g. most AVC and HEVC applications
 		return cbcsStripeDecrypt(data, conn, decryptBlockLen, skipBlockLen)
 	}
 }
 
-// Decrypt a cbcs-encrypted sample in-place
 func cbcsDecryptSample(sample []byte, conn *bufio.ReadWriter,
 	subSamplePatterns []mp4.SubSamplePattern, tenc *mp4.TencBox) error {
 
@@ -587,17 +580,14 @@ func cbcsDecryptSample(sample []byte, conn *bufio.ReadWriter,
 	skipBlockLen := int(tenc.DefaultSkipByteBlock) * 16
 	var pos uint32 = 0
 
-	// Full sample encryption
 	if len(subSamplePatterns) == 0 {
 		return cbcsDecryptRaw(sample, conn, decryptBlockLen, skipBlockLen)
 	}
 
-	// Has subsamples
 	for j := 0; j < len(subSamplePatterns); j++ {
 		ss := subSamplePatterns[j]
 		pos += uint32(ss.BytesOfClearData)
 
-		// Nothing to decrypt!
 		if ss.BytesOfProtectedData <= 0 {
 			continue
 		}
@@ -613,7 +603,6 @@ func cbcsDecryptSample(sample []byte, conn *bufio.ReadWriter,
 	return nil
 }
 
-// Decrypt an array of cbcs-encrypted samples in-place
 func cbcsDecryptSamples(samples []mp4.FullSample, conn *bufio.ReadWriter,
 	tenc *mp4.TencBox, senc *mp4.SencBox) error {
 
@@ -640,7 +629,6 @@ func DecryptFragment(frag *mp4.Fragment, tracks map[uint32]mp4.DecryptTrackInfo,
 			return fmt.Errorf("could not find decryption info for track %d", traf.Tfhd.TrackID)
 		}
 		if ti.Sinf == nil {
-			// unencrypted track
 			continue
 		}
 
@@ -661,11 +649,6 @@ func DecryptFragment(frag *mp4.Fragment, tracks map[uint32]mp4.DecryptTrackInfo,
 		}
 
 		if !isParsed {
-			// simply ignore sbgp and sgpd
-			// "Sample To Group Box ('sbgp') and Sample Group Description Box ('sgpd')
-			// of type 'seig' are used to indicate the KID applied to each sample, and changes
-			// to KIDs over time (i.e. 'key rotation')"
-			// (ref: https://dashif.org/docs/DASH-IF-IOP-v3.2.pdf)
 			err := senc.ParseReadBox(ti.Sinf.Schi.Tenc.DefaultPerSampleIVSize, traf.Saiz)
 			if err != nil {
 				return err
