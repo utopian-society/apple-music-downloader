@@ -122,14 +122,21 @@ func containsCJK(s string) bool {
 }
 
 func TtmlToLrc(ttml string) (string, error) {
+	if ttml == "" {
+		return "", errors.New("empty TTML content")
+	}
 	parsedTTML := etree.NewDocument()
 	err := parsedTTML.ReadFromString(ttml)
 	if err != nil {
 		return "", err
 	}
 
+	ttElem := parsedTTML.FindElement("tt")
+	if ttElem == nil {
+		return "", errors.New("no tt element found in TTML")
+	}
 	var lrcLines []string
-	timingAttr := parsedTTML.FindElement("tt").SelectAttr("itunes:timing")
+	timingAttr := ttElem.SelectAttr("itunes:timing")
 	if timingAttr != nil {
 		if timingAttr.Value == "Word" {
 			lrc, err := conventSyllableTTMLToLRC(ttml)
@@ -147,7 +154,7 @@ func TtmlToLrc(ttml string) (string, error) {
 		}
 	}
 
-	for _, item := range parsedTTML.FindElement("tt").FindElement("body").ChildElements() {
+	for _, item := range ttElem.FindElement("body").ChildElements() {
 		for _, lyric := range item.ChildElements() {
 			var h, m, s, ms int
 			beginAttr := lyric.SelectAttr("begin")
@@ -252,6 +259,9 @@ func TtmlToLrc(ttml string) (string, error) {
 }
 
 func conventSyllableTTMLToLRC(ttml string) (string, error) {
+	if ttml == "" {
+		return "", errors.New("empty TTML content")
+	}
 	parsedTTML := etree.NewDocument()
 	err := parsedTTML.ReadFromString(ttml)
 	if err != nil {
@@ -283,7 +293,11 @@ func conventSyllableTTMLToLRC(ttml string) (string, error) {
 			return fmt.Sprintf("<%02d:%02d.%02d>", m, s, ms), nil
 		}
 	}
-	divs := parsedTTML.FindElement("tt").FindElement("body").FindElements("div")
+	ttElem := parsedTTML.FindElement("tt")
+	if ttElem == nil {
+		return "", errors.New("no tt element found in TTML")
+	}
+	divs := ttElem.FindElement("body").FindElements("div")
 	for _, div := range divs {
 		for _, item := range div.ChildElements() { //LINES
 			var lrcSyllables []string
