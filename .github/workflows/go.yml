@@ -25,7 +25,7 @@ jobs:
         mkdir -p alac
         cp agent.js alac/
         cp agent-arm64.js alac/
-        cp config.yaml alac/
+        cp config.yaml.example alac/config.yaml
         cp README.md alac/
         cp main.exe alac/
     - name: Upload apple-music-alac-atmos-downloader
@@ -51,7 +51,7 @@ jobs:
         mkdir -p alac
         cp agent.js alac/
         cp agent-arm64.js alac/
-        cp config.yaml alac/
+        cp config.yaml.example alac/config.yaml
         cp README.md alac/
         cp main alac/
     - name: Upload apple-music-alac-atmos-downloader
@@ -77,7 +77,7 @@ jobs:
         mkdir -p alac
         cp agent.js alac/
         cp agent-arm64.js alac/
-        cp config.yaml alac/
+        cp config.yaml.example alac/config.yaml
         cp README.md alac/
         cp main alac/
     - name: Upload apple-music-alac-atmos-downloader
