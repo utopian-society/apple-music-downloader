@@ -43,26 +43,27 @@ import (
 )
 
 var (
-	forbiddenNames = regexp.MustCompile(`[/\\<>:"|?*]`)
-	dl_atmos       bool
-	dl_aac         bool
-	dl_select      bool
-	dl_song        bool
-	dl_mv          *bool
-	dl_lyrics      bool
-	artist_select  bool
-	debug_mode     bool
-	print_json     bool
-	alac_max       *int
-	atmos_max      *int
-	mv_max         *int
-	mv_audio_type  *string
-	aac_type       *string
-	aac_max        *int
-	Config         structs.ConfigSet
-	counter        structs.Counter
-	okDict         = make(map[string][]int)
-	AddedTracks    []AddedTrack
+	forbiddenNames     = regexp.MustCompile(`[/\\<>:"|?*]`)
+	dl_atmos           bool
+	dl_aac             bool
+	dl_select          bool
+	dl_song            bool
+	dl_mv              *bool
+	dl_lyrics          bool
+	artist_select      bool
+	debug_mode         bool
+	print_json         bool
+	save_m3u8_playlist bool
+	alac_max           *int
+	atmos_max          *int
+	mv_max             *int
+	mv_audio_type      *string
+	aac_type           *string
+	aac_max            *int
+	Config             structs.ConfigSet
+	counter            structs.Counter
+	okDict             = make(map[string][]int)
+	AddedTracks        []AddedTrack
 	// Shared HTTP client with optimized settings for lower resource usage
 	httpClient *http.Client
 )
@@ -2033,6 +2034,9 @@ func ripPlaylist(playlistId string, token string, storefront string, mediaUserTo
 }
 
 func writeM3UPlaylist(folderPath string, name string, tracks []AddedTrack) (err error) {
+	if !save_m3u8_playlist {
+		return nil
+	}
 	m3uPath := filepath.Join(folderPath, forbiddenNames.ReplaceAllString(name, "_")+".m3u8")
 	f, err := os.Create(m3uPath)
 	if err != nil {
@@ -2461,6 +2465,7 @@ func main() {
 	pflag.BoolVar(&artist_select, "all-album", false, "Download all artist albums")
 	pflag.BoolVar(&debug_mode, "debug", false, "Enable debug mode to show audio quality information")
 	pflag.BoolVar(&print_json, "json", false, "Output JSON summary at the end")
+	pflag.BoolVar(&save_m3u8_playlist, "save-m3u8-playlist", false, "Save M3U8 playlist file")
 	pflag.BoolVar(&dl_lyrics, "lyrics", false, "Download only lyrics files (LRC or TTML based on config)")
 	alac_max = pflag.Int("alac-max", Config.AlacMax, "Specify the max quality for download alac")
 	atmos_max = pflag.Int("atmos-max", Config.AtmosMax, "Specify the max quality for download atmos")
