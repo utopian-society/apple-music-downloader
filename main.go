@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -21,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"main/utils/alacfix"
 	"main/utils/ampapi"
 	"main/utils/lyrics"
 	"main/utils/metadata"
@@ -891,11 +893,6 @@ func ripTrack(track *task.Track, token string, mediaUserToken string) {
 	}
 	fmt.Printf("Track %d of %d: %s\n", track.TaskNum, track.TaskTotal, displayType)
 
-	//提前获取到的播放列表下track所在的专辑信息
-	if track.PreType == "playlists" && Config.UseSongInfoForPlaylist {
-		track.GetAlbumData(token)
-	}
-
 	//mv dl dev
 	if track.Type == "music-videos" {
 		if !Config.DownloadMusicVideo {
@@ -1025,9 +1022,57 @@ func ripTrack(track *task.Track, token string, mediaUserToken string) {
 		convertedPath = strings.TrimSuffix(trackPath, filepath.Ext(trackPath)) + "." + strings.ToLower(Config.ConvertFormat)
 		considerConverted = true
 	}
+	lyricsOnlyMode := dl_lyrics || Config.LyricsOnly
+
+	if !lyricsOnlyMode {
+		// Existence check now considers converted output (if original was deleted)
+		existsOriginal, err := fileExists(trackPath)
+		if err != nil {
+			fmt.Println("Failed to check if track exists.")
+		}
+		if existsOriginal {
+			fmt.Println("Track already exists locally.")
+			counter.Success++
+			okDict[track.PreID] = append(okDict[track.PreID], track.TaskNum)
+
+			tArtistId := ""
+			if len(track.Resp.Relationships.Artists.Data) > 0 {
+				tArtistId = track.Resp.Relationships.Artists.Data[0].ID
+			}
+			AddedTracks = append(AddedTracks, AddedTrack{
+				Path:     trackPath,
+				Artist:   track.Resp.Attributes.ArtistName,
+				ArtistID: tArtistId,
+				Album:    track.Resp.Attributes.AlbumName,
+				Song:     track.Resp.Attributes.Name,
+			})
+			return
+		}
+		if considerConverted {
+			existsConverted, err2 := fileExists(convertedPath)
+			if err2 == nil && existsConverted {
+				fmt.Println("Converted track already exists locally.")
+				counter.Success++
+				okDict[track.PreID] = append(okDict[track.PreID], track.TaskNum)
+
+				tArtistId := ""
+				if len(track.Resp.Relationships.Artists.Data) > 0 {
+					tArtistId = track.Resp.Relationships.Artists.Data[0].ID
+				}
+				AddedTracks = append(AddedTracks, AddedTrack{
+					Path:     convertedPath,
+					Artist:   track.Resp.Attributes.ArtistName,
+					ArtistID: tArtistId,
+					Album:    track.Resp.Attributes.AlbumName,
+					Song:     track.Resp.Attributes.Name,
+				})
+				return
+			}
+		}
+	}
+
 	//get lrc
 	var lrc string = ""
-	lyricsOnlyMode := dl_lyrics || Config.LyricsOnly
 	if Config.EmbedLrc || Config.SaveLrcFile || lyricsOnlyMode {
 		lrcStr, err := lyrics.Get(track.Storefront, track.ID, Config.LrcType, Config.Language, Config.LrcFormat, token, mediaUserToken)
 		if err != nil {
@@ -1065,49 +1110,9 @@ func ripTrack(track *task.Track, token string, mediaUserToken string) {
 		return
 	}
 
-	// Existence check now considers converted output (if original was deleted)
-	existsOriginal, err := fileExists(trackPath)
-	if err != nil {
-		fmt.Println("Failed to check if track exists.")
-	}
-	if existsOriginal {
-		fmt.Println("Track already exists locally.")
-		counter.Success++
-		okDict[track.PreID] = append(okDict[track.PreID], track.TaskNum)
-
-		tArtistId := ""
-		if len(track.Resp.Relationships.Artists.Data) > 0 {
-			tArtistId = track.Resp.Relationships.Artists.Data[0].ID
-		}
-		AddedTracks = append(AddedTracks, AddedTrack{
-			Path:     trackPath,
-			Artist:   track.Resp.Attributes.ArtistName,
-			ArtistID: tArtistId,
-			Album:    track.Resp.Attributes.AlbumName,
-			Song:     track.Resp.Attributes.Name,
-		})
-		return
-	}
-	if considerConverted {
-		existsConverted, err2 := fileExists(convertedPath)
-		if err2 == nil && existsConverted {
-			fmt.Println("Converted track already exists locally.")
-			counter.Success++
-			okDict[track.PreID] = append(okDict[track.PreID], track.TaskNum)
-
-			tArtistId := ""
-			if len(track.Resp.Relationships.Artists.Data) > 0 {
-				tArtistId = track.Resp.Relationships.Artists.Data[0].ID
-			}
-			AddedTracks = append(AddedTracks, AddedTrack{
-				Path:     convertedPath,
-				Artist:   track.Resp.Attributes.ArtistName,
-				ArtistID: tArtistId,
-				Album:    track.Resp.Attributes.AlbumName,
-				Song:     track.Resp.Attributes.Name,
-			})
-			return
-		}
+	//提前获取到的播放列表下track所在的专辑信息
+	if track.PreType == "playlists" && Config.UseSongInfoForPlaylist {
+		track.GetAlbumData(token)
 	}
 
 	if needDlAacLc {
@@ -1179,6 +1184,14 @@ func ripTrack(track *task.Track, token string, mediaUserToken string) {
 		}
 	}
 	track.SavePath = trackPath
+	if Config.ALACFix {
+		err = alacfix.Run(track.SavePath, false)
+		if err != nil {
+			fmt.Println("⚠ Failed to fix ALAC:", err)
+			counter.Unavailable++
+			return
+		}
+	}
 	err = writeMP4Tags(track, lrc)
 	if err != nil {
 		fmt.Println("[WARNING] Failed to write tags in media:", err)
@@ -1409,10 +1422,16 @@ func ripStation(albumId string, token string, storefront string, mediaUserToken 
 	} else {
 		selected = station.ShowSelect()
 	}
+	startIdx := len(AddedTracks)
 	for i := range station.Tracks {
 		i++
 		if isInArray(selected, i) {
 			ripTrack(&station.Tracks[i-1], token, mediaUserToken)
+		}
+	}
+	if len(AddedTracks) > startIdx {
+		if err := writeM3UPlaylist(playlistFolderPath, playlistFolder, AddedTracks[startIdx:]); err != nil {
+			fmt.Printf("Failed to write M3U8 playlist: %v\n", err)
 		}
 	}
 	return nil
@@ -1732,6 +1751,7 @@ func ripAlbum(albumId string, token string, storefront string, mediaUserToken st
 	} else {
 		selected = album.ShowSelect()
 	}
+	startIdx := len(AddedTracks)
 	for i := range album.Tracks {
 		i++
 		if isInArray(okDict[albumId], i) {
@@ -1741,6 +1761,11 @@ func ripAlbum(albumId string, token string, storefront string, mediaUserToken st
 		}
 		if isInArray(selected, i) {
 			ripTrack(&album.Tracks[i-1], token, mediaUserToken)
+		}
+	}
+	if len(AddedTracks) > startIdx {
+		if err := writeM3UPlaylist(albumFolderPath, albumFolderName, AddedTracks[startIdx:]); err != nil {
+			fmt.Printf("Failed to write M3U8 playlist: %v\n", err)
 		}
 	}
 	return nil
@@ -1987,6 +2012,7 @@ func ripPlaylist(playlistId string, token string, storefront string, mediaUserTo
 	} else {
 		selected = playlist.ShowSelect()
 	}
+	startIdx := len(AddedTracks)
 	for i := range playlist.Tracks {
 		i++
 		if isInArray(okDict[playlistId], i) {
@@ -1997,6 +2023,34 @@ func ripPlaylist(playlistId string, token string, storefront string, mediaUserTo
 		if isInArray(selected, i) {
 			ripTrack(&playlist.Tracks[i-1], token, mediaUserToken)
 		}
+	}
+	if len(AddedTracks) > startIdx {
+		if err := writeM3UPlaylist(playlistFolderPath, playlistFolder, AddedTracks[startIdx:]); err != nil {
+			fmt.Printf("Failed to write M3U8 playlist: %v\n", err)
+		}
+	}
+	return nil
+}
+
+func writeM3UPlaylist(folderPath string, name string, tracks []AddedTrack) (err error) {
+	m3uPath := filepath.Join(folderPath, forbiddenNames.ReplaceAllString(name, "_")+".m3u8")
+	f, err := os.Create(m3uPath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if cerr := f.Close(); err == nil && cerr != nil {
+			err = cerr
+		}
+	}()
+	fmt.Fprintln(f, "#EXTM3U")
+	for _, track := range tracks {
+		fmt.Fprintf(f, "#EXTINF:-1,%s - %s\n", track.Artist, track.Song)
+		relPath := filepath.Base(track.Path)
+		if rel, relErr := filepath.Rel(folderPath, track.Path); relErr == nil && !strings.HasPrefix(rel, "..") {
+			relPath = rel
+		}
+		fmt.Fprintln(f, filepath.ToSlash(relPath))
 	}
 	return nil
 }
@@ -2059,6 +2113,12 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		TrackNumber: int16(track.Resp.Attributes.TrackNumber),
 		DiscNumber:  int16(track.Resp.Attributes.DiscNumber),
 		Album:       track.Resp.Attributes.AlbumName,
+	}
+	if Config.TagSortOrder {
+		t.TitleSort = track.Resp.Attributes.Name
+		t.ArtistSort = track.Resp.Attributes.ArtistName
+		t.ComposerSort = track.Resp.Attributes.ComposerName
+		t.AlbumSort = track.Resp.Attributes.AlbumName
 	}
 
 	// Add EditorialNotes as comment if available (try Standard, then Short, then Name)
@@ -2132,20 +2192,28 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.Comment = strings.TrimSpace(cleanComment)
 	}
 
-	if track.PreType == "albums" {
-		albumID, err := strconv.ParseUint(track.PreID, 10, 64)
-		if err != nil {
-			return err
+	if Config.TagItunesID {
+		if track.PreType == "albums" {
+			albumID, err := strconv.ParseUint(track.PreID, 10, 32)
+			if err != nil {
+				return err
+			}
+			if albumID > math.MaxInt32 {
+				return fmt.Errorf("itunes album ID out of range: %s", track.PreID)
+			}
+			t.ItunesAlbumID = int32(albumID)
 		}
-		t.ItunesAlbumID = int32(albumID)
-	}
 
-	if len(track.Resp.Relationships.Artists.Data) > 0 {
-		artistID, err := strconv.ParseUint(track.Resp.Relationships.Artists.Data[0].ID, 10, 64)
-		if err != nil {
-			return err
+		if len(track.Resp.Relationships.Artists.Data) > 0 {
+			artistID, err := strconv.ParseUint(track.Resp.Relationships.Artists.Data[0].ID, 10, 32)
+			if err != nil {
+				return err
+			}
+			if artistID > math.MaxInt32 {
+				return fmt.Errorf("itunes artist ID out of range: %s", track.Resp.Relationships.Artists.Data[0].ID)
+			}
+			t.ItunesArtistID = int32(artistID)
 		}
-		t.ItunesArtistID = int32(artistID)
 	}
 
 	if (track.PreType == "playlists" || track.PreType == "stations") && !Config.UseSongInfoForPlaylist {
@@ -2155,6 +2223,10 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.TrackTotal = int16(track.TaskTotal)
 		t.Album = track.PlaylistData.Attributes.Name
 		t.AlbumArtist = track.PlaylistData.Attributes.ArtistName
+		if Config.TagSortOrder {
+			t.AlbumSort = track.PlaylistData.Attributes.Name
+			t.AlbumArtistSort = track.PlaylistData.Attributes.ArtistName
+		}
 	} else if (track.PreType == "playlists" || track.PreType == "stations") && Config.UseSongInfoForPlaylist {
 		t.DiscTotal = int16(track.DiscTotal)
 		t.TrackTotal = int16(track.AlbumData.Attributes.TrackCount)
@@ -2168,6 +2240,9 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.Date = track.AlbumData.Attributes.ReleaseDate
 		t.Copyright = track.AlbumData.Attributes.Copyright
 		t.Publisher = track.AlbumData.Attributes.RecordLabel
+		if Config.TagSortOrder {
+			t.AlbumArtistSort = track.AlbumData.Attributes.ArtistName
+		}
 	} else {
 		t.DiscTotal = int16(track.DiscTotal)
 		t.TrackTotal = int16(track.AlbumData.Attributes.TrackCount)
@@ -2181,6 +2256,9 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.Date = track.AlbumData.Attributes.ReleaseDate
 		t.Copyright = track.AlbumData.Attributes.Copyright
 		t.Publisher = track.AlbumData.Attributes.RecordLabel
+		if Config.TagSortOrder {
+			t.AlbumArtistSort = track.AlbumData.Attributes.ArtistName
+		}
 	}
 
 	if track.Resp.Attributes.ContentRating == "explicit" {

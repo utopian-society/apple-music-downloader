@@ -1,5 +1,7 @@
 *
 !.gitignore
+!.gitattributes
+!.dockerignore
 !.github/
 !.github/**
 !agent.js
@@ -10,8 +12,10 @@
 !README.md
 !utils/
 !utils/**
+!cmd/
+!cmd/**
 !Dockerfile
-!config.yaml
+!/config.yaml.example
 !build.sh
 !batch_example.txt
 !docs/

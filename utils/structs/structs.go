@@ -16,6 +16,8 @@ type ConfigSet struct {
 	SaveArtistCover            bool   `yaml:"save-artist-cover"`
 	CoverSize                  string `yaml:"cover-size"`
 	CoverFormat                string `yaml:"cover-format"`
+	TagSortOrder               bool   `yaml:"tag-sort-order"`
+	TagItunesID                bool   `yaml:"tag-itunes-id"`
 	AlacSaveFolder             string `yaml:"alac-save-folder"`
 	AtmosSaveFolder            string `yaml:"atmos-save-folder"`
 	AacSaveFolder              string `yaml:"aac-save-folder"`
@@ -44,6 +46,7 @@ type ConfigSet struct {
 	MVAudioType                string `yaml:"mv-audio-type"`
 	MVMax                      int    `yaml:"mv-max"`
 	DownloadMusicVideo         bool   `yaml:"download-music-video"`
+	ALACFix                    bool   `yaml:"alac-fix"`
 	ConvertAfterDownload       bool   `yaml:"convert-after-download"`
 	ConvertFormat              string `yaml:"convert-format"`
 	ConvertKeepOriginal        bool   `yaml:"convert-keep-original"`
