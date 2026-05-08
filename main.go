@@ -2133,7 +2133,7 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 	}
 
 	if track.PreType == "albums" {
-		albumID, err := strconv.ParseUint(track.PreID, 10, 32)
+		albumID, err := strconv.ParseUint(track.PreID, 10, 64)
 		if err != nil {
 			return err
 		}
@@ -2141,7 +2141,7 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 	}
 
 	if len(track.Resp.Relationships.Artists.Data) > 0 {
-		artistID, err := strconv.ParseUint(track.Resp.Relationships.Artists.Data[0].ID, 10, 32)
+		artistID, err := strconv.ParseUint(track.Resp.Relationships.Artists.Data[0].ID, 10, 64)
 		if err != nil {
 			return err
 		}
