@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -2031,17 +2032,25 @@ func ripPlaylist(playlistId string, token string, storefront string, mediaUserTo
 	return nil
 }
 
-func writeM3UPlaylist(folderPath string, name string, tracks []AddedTrack) error {
+func writeM3UPlaylist(folderPath string, name string, tracks []AddedTrack) (err error) {
 	m3uPath := filepath.Join(folderPath, forbiddenNames.ReplaceAllString(name, "_")+".m3u8")
 	f, err := os.Create(m3uPath)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); err == nil && cerr != nil {
+			err = cerr
+		}
+	}()
 	fmt.Fprintln(f, "#EXTM3U")
 	for _, track := range tracks {
 		fmt.Fprintf(f, "#EXTINF:-1,%s - %s\n", track.Artist, track.Song)
-		fmt.Fprintln(f, filepath.Base(track.Path))
+		relPath := filepath.Base(track.Path)
+		if rel, relErr := filepath.Rel(folderPath, track.Path); relErr == nil && !strings.HasPrefix(rel, "..") {
+			relPath = rel
+		}
+		fmt.Fprintln(f, filepath.ToSlash(relPath))
 	}
 	return nil
 }
@@ -2185,17 +2194,23 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 
 	if Config.TagItunesID {
 		if track.PreType == "albums" {
-			albumID, err := strconv.ParseUint(track.PreID, 10, 64)
+			albumID, err := strconv.ParseUint(track.PreID, 10, 32)
 			if err != nil {
 				return err
+			}
+			if albumID > math.MaxInt32 {
+				return fmt.Errorf("itunes album ID out of range: %s", track.PreID)
 			}
 			t.ItunesAlbumID = int32(albumID)
 		}
 
 		if len(track.Resp.Relationships.Artists.Data) > 0 {
-			artistID, err := strconv.ParseUint(track.Resp.Relationships.Artists.Data[0].ID, 10, 64)
+			artistID, err := strconv.ParseUint(track.Resp.Relationships.Artists.Data[0].ID, 10, 32)
 			if err != nil {
 				return err
+			}
+			if artistID > math.MaxInt32 {
+				return fmt.Errorf("itunes artist ID out of range: %s", track.Resp.Relationships.Artists.Data[0].ID)
 			}
 			t.ItunesArtistID = int32(artistID)
 		}
