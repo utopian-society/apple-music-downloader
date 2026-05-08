@@ -12,6 +12,8 @@ emby-animated-artwork: false    # If enabled, requires ffmpeg
 embed-cover: true
 cover-size: 5000x5000
 cover-format: jpg       #jpg png or original
+tag-sort-order: true
+tag-itunes-id: true
 alac-save-folder: AM-DL downloads
 atmos-save-folder: AM-DL-Atmos downloads
 aac-save-folder: AM-DL-AAC downloads
@@ -58,6 +60,7 @@ download-music-video: true  # true = download music videos (more disk space; may
 # if your account is from Japan, you must use jp.
 # if the storefront is different from your account, you will see a "failed to get lyrics" error in most of the songs. By default the storefront is set to US if not set.
 storefront: "enter your account storefront"
+alac-fix: false                   # Patch malformed ALAC packets
 # Conversion settings
 convert-after-download: false     # Enable post-download conversion (requires ffmpeg)
 convert-format: "flac"            # flac | mp3 | opus | wav | aiff | copy (no re-encode)
