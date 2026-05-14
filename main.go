@@ -2199,15 +2199,27 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 	if Config.TagItunesID {
 		if track.PreType == "albums" {
 			albumID, err := strconv.ParseUint(track.PreID, 10, 64)
-			if err == nil && albumID <= math.MaxInt32 {
-				t.ItunesAlbumID = int32(albumID)
+			if err == nil {
+				if albumID <= math.MaxInt32 {
+					t.ItunesAlbumID = int32(albumID)
+				} else if debug_mode {
+					fmt.Printf("[DEBUG] iTunes album ID out of range: %s\n", track.PreID)
+				}
+			} else if debug_mode {
+				fmt.Printf("[DEBUG] iTunes album ID parse failed: %s\n", track.PreID)
 			}
 		}
 
 		if len(track.Resp.Relationships.Artists.Data) > 0 {
 			artistID, err := strconv.ParseUint(track.Resp.Relationships.Artists.Data[0].ID, 10, 64)
-			if err == nil && artistID <= math.MaxInt32 {
-				t.ItunesArtistID = int32(artistID)
+			if err == nil {
+				if artistID <= math.MaxInt32 {
+					t.ItunesArtistID = int32(artistID)
+				} else if debug_mode {
+					fmt.Printf("[DEBUG] iTunes artist ID out of range: %s\n", track.Resp.Relationships.Artists.Data[0].ID)
+				}
+			} else if debug_mode {
+				fmt.Printf("[DEBUG] iTunes artist ID parse failed: %s\n", track.Resp.Relationships.Artists.Data[0].ID)
 			}
 		}
 	}
