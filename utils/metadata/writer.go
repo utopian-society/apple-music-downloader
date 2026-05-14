@@ -5,6 +5,7 @@ import (
 	"io"
 	"main/utils/ampapi"
 	"main/utils/structs"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -334,16 +335,16 @@ func WriteMP4Tags(trackPath, lrc string, meta *ampapi.AlbumResp, trackNum, track
 	}
 
 	if !strings.Contains(meta.Data[0].ID, "pl.") {
-		albumID, err := strconv.ParseUint(meta.Data[0].ID, 10, 32)
-		if err == nil {
+		albumID, err := strconv.ParseUint(meta.Data[0].ID, 10, 64)
+		if err == nil && albumID <= math.MaxInt32 {
 			t.ItunesAlbumID = int32(albumID)
 		}
 	}
 
 	if len(meta.Data[0].Relationships.Artists.Data) > 0 {
 		if len(meta.Data[0].Relationships.Tracks.Data[index].Relationships.Artists.Data) > 0 {
-			artistID, err := strconv.ParseUint(meta.Data[0].Relationships.Tracks.Data[index].Relationships.Artists.Data[0].ID, 10, 32)
-			if err == nil {
+			artistID, err := strconv.ParseUint(meta.Data[0].Relationships.Tracks.Data[index].Relationships.Artists.Data[0].ID, 10, 64)
+			if err == nil && artistID <= math.MaxInt32 {
 				t.ItunesArtistID = int32(artistID)
 			}
 		}
