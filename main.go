@@ -883,6 +883,11 @@ func convertIfNeeded(track *task.Track) {
 }
 
 func ripTrack(track *task.Track, token string, mediaUserToken string) {
+	// Ensure the save directory exists before proceeding
+	if track.SaveDir != "" {
+		os.MkdirAll(track.SaveDir, os.ModePerm)
+	}
+
 	var err error
 	counter.Total++
 	// Display track type in a more readable format
@@ -1722,7 +1727,6 @@ func ripAlbum(albumId string, token string, storefront string, mediaUserToken st
 			}
 			discFolderName := fmt.Sprintf("Disc %d", discNumber)
 			discFolderPath := filepath.Join(albumFolderPath, discFolderName)
-			os.MkdirAll(discFolderPath, os.ModePerm)
 			album.Tracks[i].SaveDir = discFolderPath
 		} else {
 			album.Tracks[i].SaveDir = albumFolderPath
@@ -1769,8 +1773,19 @@ func ripAlbum(albumId string, token string, storefront string, mediaUserToken st
 			fmt.Printf("Failed to write M3U8 playlist: %v\n", err)
 		}
 	}
-	return nil
 
+	// Final cleanup of empty disc folders (especially useful if tracks were not downloaded or setting was toggled)
+	if hasMultipleDiscs {
+		for d := 1; d <= maxDiscNumber; d++ {
+			discFolderName := fmt.Sprintf("Disc %d", d)
+			discFolderPath := filepath.Join(albumFolderPath, discFolderName)
+			if entries, err := os.ReadDir(discFolderPath); err == nil && len(entries) == 0 {
+				os.Remove(discFolderPath)
+			}
+		}
+	}
+
+	return nil
 }
 func ripPlaylist(playlistId string, token string, storefront string, mediaUserToken string) error {
 	playlist := task.NewPlaylist(storefront, playlistId)
