@@ -3,7 +3,7 @@ module main
 go 1.25.0
 
 require (
-	github.com/Eyevinn/mp4ff v0.51.0
+	github.com/Eyevinn/mp4ff v0.52.0
 	github.com/aead/cmac v0.0.0-20160719120800-7af84192f0b1
 	github.com/grafov/m3u8 v0.11.1
 	github.com/schollz/progressbar/v3 v3.19.0
@@ -43,6 +43,6 @@ require (
 	github.com/fatih/color v1.19.0
 	github.com/go-resty/resty/v2 v2.17.2
 	github.com/olekukonko/tablewriter v1.1.4
-	github.com/zhaarey/go-mp4tag v0.0.0-20251021234435-2c70f6b1bf76
+	github.com/zhaarey/go-mp4tag v0.0.0-20260509131819-a89fa417cd97
 	gopkg.in/yaml.v2 v2.4.0
 )
