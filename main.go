@@ -2623,6 +2623,10 @@ func main() {
 		if counter.Error == 0 {
 			break
 		}
+		if Config.ExitOnError {
+			fmt.Println("Error detected, exiting because exit-on-error is true.")
+			os.Exit(1)
+		}
 		fmt.Println("Error detected, press Enter to try again...")
 		fmt.Scanln()
 		fmt.Println("Start trying again...")
