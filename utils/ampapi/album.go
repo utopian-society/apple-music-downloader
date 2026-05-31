@@ -67,14 +67,18 @@ func GetAlbumResp(storefront string, id string, language string, token string) (
 			if err != nil {
 				return nil, err
 			}
-			defer do.Body.Close()
 			if do.StatusCode != http.StatusOK {
+				do.Body.Close()
 				return nil, errors.New(do.Status)
 			}
 			obj2 := new(TrackResp)
 			err = json.NewDecoder(do.Body).Decode(&obj2)
+			closeErr := do.Body.Close()
 			if err != nil {
 				return nil, err
+			}
+			if closeErr != nil {
+				return nil, closeErr
 			}
 			obj.Data[0].Relationships.Tracks.Data = append(obj.Data[0].Relationships.Tracks.Data, obj2.Data...)
 			next = obj2.Next
@@ -144,14 +148,18 @@ func GetAlbumRespByHref(href string, language string, token string) (*AlbumResp,
 			if err != nil {
 				return nil, err
 			}
-			defer do.Body.Close()
 			if do.StatusCode != http.StatusOK {
+				do.Body.Close()
 				return nil, errors.New(do.Status)
 			}
 			obj2 := new(TrackResp)
 			err = json.NewDecoder(do.Body).Decode(&obj2)
+			closeErr := do.Body.Close()
 			if err != nil {
 				return nil, err
+			}
+			if closeErr != nil {
+				return nil, closeErr
 			}
 			obj.Data[0].Relationships.Tracks.Data = append(obj.Data[0].Relationships.Tracks.Data, obj2.Data...)
 			next = obj2.Next

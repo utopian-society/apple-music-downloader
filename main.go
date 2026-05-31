@@ -1127,7 +1127,6 @@ func ripTrack(track *task.Track, token string, mediaUserToken string) {
 			counter.Error++
 			return
 		}
-		Config.CodecName = "aac-lc"
 		_, err := runv3.Run(track.ID, trackPath, token, mediaUserToken, false, "")
 		if err != nil {
 			fmt.Println("Failed to dl aac-lc:", err)
@@ -1145,16 +1144,16 @@ func ripTrack(track *task.Track, token string, mediaUserToken string) {
 			counter.Unavailable++
 			return
 		}
-		// Set CodecName based on download type
+		var codecName string
 		if dl_atmos {
-			Config.CodecName = "ec3"
+			codecName = "ec3"
 		} else if dl_aac {
-			Config.CodecName = Config.AacType
+			codecName = Config.AacType
 		} else {
-			Config.CodecName = "alac"
+			codecName = "alac"
 		}
 		//边下载边解密
-		err = runv2.Run(track.ID, trackM3u8Url, trackPath, Config)
+		err = runv2.Run(track.ID, trackM3u8Url, trackPath, Config, codecName)
 		if err != nil {
 			fmt.Println("Failed to run v2:", err)
 			counter.Error++
@@ -1431,6 +1430,11 @@ func ripStation(albumId string, token string, storefront string, mediaUserToken 
 	startIdx := len(AddedTracks)
 	for i := range station.Tracks {
 		i++
+		if isInArray(okDict[station.ID], i) {
+			counter.Total++
+			counter.Success++
+			continue
+		}
 		if isInArray(selected, i) {
 			ripTrack(&station.Tracks[i-1], token, mediaUserToken)
 		}
@@ -2370,7 +2374,7 @@ func processURL(urlRaw string, albumNum int, albumTotal int, token string, mutex
 	if strings.Contains(urlRaw, "/song/") {
 		mutex.Lock()
 		fmt.Printf("Song->")
-		counter.Total++
+		// counter.Total++
 		mutex.Unlock()
 		storefront, songId := checkUrlSong(urlRaw)
 		if storefront == "" || songId == "" {

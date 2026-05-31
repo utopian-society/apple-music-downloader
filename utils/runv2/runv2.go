@@ -44,7 +44,7 @@ func (b *TimedResponseBody) Read(p []byte) (int, error) {
 	return n, err
 }
 
-func Run(adamId string, playlistUrl string, outfile string, Config structs.ConfigSet) error {
+func Run(adamId string, playlistUrl string, outfile string, Config structs.ConfigSet, codecName string) error {
 	var err error
 	var optstimeout uint
 	optstimeout = 0
@@ -152,7 +152,7 @@ func Run(adamId string, playlistUrl string, outfile string, Config structs.Confi
 	}
 	defer Close(conn)
 
-	err = downloadAndDecryptFile(conn, body, outfile, adamId, segments, totalLen, Config)
+	err = downloadAndDecryptFile(conn, body, outfile, adamId, segments, totalLen, Config, codecName)
 	if err != nil {
 		return err
 	}
@@ -161,7 +161,7 @@ func Run(adamId string, playlistUrl string, outfile string, Config structs.Confi
 }
 
 func downloadAndDecryptFile(conn io.ReadWriter, in io.Reader, outfile string,
-	adamId string, playlistSegments []*m3u8.MediaSegment, totalLen int64, Config structs.ConfigSet) error {
+	adamId string, playlistSegments []*m3u8.MediaSegment, totalLen int64, Config structs.ConfigSet, codecName string) error {
 	var buffer bytes.Buffer
 	var outBuf *bufio.Writer
 	MaxMemorySize := int64(Config.MaxMemoryLimit * 1024 * 1024)
@@ -193,7 +193,7 @@ func downloadAndDecryptFile(conn io.ReadWriter, in io.Reader, outfile string,
 		// errors returned by sanitizeInit are non-fatal
 		fmt.Printf("Warning: unable to sanitize init completely: %s\n", err)
 	}
-	InjectElst(init, Config.CodecName)
+	InjectElst(init, codecName)
 	err = init.Encode(outBuf)
 	if err != nil {
 		return err

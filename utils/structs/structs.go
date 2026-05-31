@@ -59,7 +59,6 @@ type ConfigSet struct {
 	ConvertSkipLossyToLossless bool   `yaml:"convert-skip-lossy-to-lossless"`
 	ConvertCheckBadALAC        bool   `yaml:"convert-check-bad-alac"`
 	ConvertDeleteBadALAC       bool   `yaml:"convert-delete-bad-alac"`
-	CodecName                  string // Runtime-only field (not yaml serialized)
 }
 
 type Counter struct {
