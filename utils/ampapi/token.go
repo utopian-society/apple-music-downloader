@@ -1,6 +1,7 @@
 package ampapi
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"regexp"
@@ -23,8 +24,18 @@ func GetToken() (string, error) {
 		return "", err
 	}
 
-	regex := regexp.MustCompile(`/assets/index~[^/]+\.js`)
+
+	regex := regexp.MustCompile(`/assets/index[-~.][^/"]+\.js`)
 	indexJsUri := regex.FindString(string(body))
+	if indexJsUri == "" {
+
+		regexBackup := regexp.MustCompile(`/assets/index[^/"]+\.js`)
+		indexJsUri = regexBackup.FindString(string(body))
+	}
+
+	if indexJsUri == "" {
+		return "", errors.New("failed to find index.js asset path")
+	}
 
 	req, err = http.NewRequest("GET", "https://music.apple.com"+indexJsUri, nil)
 	if err != nil {
@@ -42,8 +53,13 @@ func GetToken() (string, error) {
 		return "", err
 	}
 
-	regex = regexp.MustCompile(`eyJh([^"]*)`)
-	token := regex.FindString(string(body))
+
+	jwtRegex := regexp.MustCompile(`eyJ[a-zA-Z0-9-_]+\.eyJ[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+`)
+	token := jwtRegex.FindString(string(body))
+
+	if token == "" {
+		return "", errors.New("developer token not found in JS asset")
+	}
 
 	return token, nil
 }
