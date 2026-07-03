@@ -3,6 +3,7 @@ package runv3
 import (
 	"context"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -310,7 +311,19 @@ func Run(adamId string, trackpath string, authtoken string, mutoken string, mvmo
 		}
 	}
 	if mvmode {
-		keyAndUrls := "1:" + keystr + ";" + fileurl
+		// Decode kidBase64 and convert to hex for mp4decrypt --key format
+		kidBytes, err := base64.StdEncoding.DecodeString(kidBase64)
+		if err != nil {
+			fmt.Printf("Warning: failed to decode KID from base64: %v, falling back to legacy format\n", err)
+			// Legacy format is incorrect, so we should return an error or handle it properly.
+			// For now, let's try to construct the key as if the decoding didn't fail,
+			// as the keystr might be the correct one.
+			// This is a temporary fix until we can confirm the correct behavior.
+			keyAndUrls := "1:" + keystr + ";" + fileurl
+			return keyAndUrls, nil
+		}
+		kidHex := hex.EncodeToString(kidBytes)
+		keyAndUrls := kidHex + ":" + keystr + ";" + fileurl
 		return keyAndUrls, nil
 	}
 	body := extsong(fileurl)

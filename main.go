@@ -1364,20 +1364,19 @@ func ripStation(albumId string, token string, storefront string, mediaUserToken 
 			})
 			return nil
 		}
-		assetsUrl, serverUrl, err := ampapi.GetStationAssetsUrlAndServerUrl(station.ID, mediaUserToken, token)
+		_, serverUrl, err := ampapi.GetStationAssetsUrlAndServerUrl(station.ID, mediaUserToken, token)
 		if err != nil {
 			fmt.Println("Failed to get station assets url.", err)
 			counter.Error++
 			return err
 		}
-		trackM3U8 := strings.ReplaceAll(assetsUrl, "index.m3u8", "256/prog_index.m3u8")
-		keyAndUrls, _ := runv3.Run(station.ID, trackM3U8, token, mediaUserToken, true, serverUrl)
-		err = runv3.ExtMvData(keyAndUrls, trackPath)
+		_, err = runv3.Run(station.ID, trackPath, token, mediaUserToken, false, serverUrl)
 		if err != nil {
 			fmt.Println("Failed to download station stream.", err)
 			counter.Error++
 			return err
 		}
+		// tags embedding continues...
 		tags := []string{
 			"tool=",
 			"disk=1/1",
