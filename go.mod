@@ -40,7 +40,7 @@ require (
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
-	github.com/beevik/etree v1.6.0
+	github.com/beevik/etree v1.7.0
 	github.com/fatih/color v1.19.0
 	github.com/go-resty/resty/v2 v2.17.2
 	github.com/olekukonko/tablewriter v1.1.4
