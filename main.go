@@ -93,6 +93,21 @@ func loadConfig() error {
 	if len(Config.Storefront) != 2 {
 		Config.Storefront = "us"
 	}
+	if Config.AlacMax == 0 {
+		Config.AlacMax = 192000
+	}
+
+	if Config.AtmosMax == 0 {
+		Config.AtmosMax = 2768
+	}
+
+	if Config.AacType == "" {
+		Config.AacType = "aac-lc"
+	}
+
+	if Config.MVAudioType == "" {
+		Config.MVAudioType = "atmos"
+	}
 	return nil
 }
 
@@ -1364,13 +1379,25 @@ func ripStation(albumId string, token string, storefront string, mediaUserToken 
 			})
 			return nil
 		}
-		_, serverUrl, err := ampapi.GetStationAssetsUrlAndServerUrl(station.ID, mediaUserToken, token)
+		assetsUrl, serverUrl, err := ampapi.GetStationAssetsUrlAndServerUrl(station.ID, mediaUserToken, token)
 		if err != nil {
 			fmt.Println("Failed to get station assets url.", err)
 			counter.Error++
 			return err
 		}
-		_, err = runv3.Run(station.ID, trackPath, token, mediaUserToken, false, serverUrl)
+		trackM3U8, err := runv3.ResolveStationVariantPlaylist(assetsUrl, token, mediaUserToken)
+		if err != nil {
+			fmt.Println("Failed to resolve station variant playlist.", err)
+			counter.Error++
+			return err
+		}
+		keyAndUrls, err := runv3.Run(station.ID, trackM3U8, token, mediaUserToken, true, serverUrl)
+		if err != nil {
+			fmt.Println("Failed to get station stream decryption key.", err)
+			counter.Error++
+			return err
+		}
+		err = runv3.ExtMvData(keyAndUrls, trackPath)
 		if err != nil {
 			fmt.Println("Failed to download station stream.", err)
 			counter.Error++
@@ -3226,6 +3253,22 @@ func extractMedia(b string, more_mode bool) (string, string, error) {
 		return "", "", nil
 	}
 	var Quality string
+	fmt.Printf("%+v\n", Config)
+	fmt.Println("===== SELECTOR =====")
+	for _, variant := range master.Variants {
+		fmt.Printf("Codec=%q Audio=%q AvgBW=%d BW=%d\n",
+			variant.Codecs,
+			variant.Audio,
+			variant.AverageBandwidth,
+			variant.Bandwidth,
+		)
+	}
+	fmt.Printf("dl_atmos=%v dl_aac=%v AlacMax=%d\n",
+		dl_atmos,
+		dl_aac,
+		Config.AlacMax,
+	)
+	fmt.Println("====================")
 	for _, variant := range master.Variants {
 		if dl_atmos {
 			if variant.Codecs == "ec-3" && strings.Contains(variant.Audio, "atmos") {
@@ -3304,11 +3347,23 @@ func extractMedia(b string, more_mode bool) (string, string, error) {
 			}
 		} else {
 			if variant.Codecs == "alac" {
+				fmt.Println("MATCH ALAC:", variant.Audio)
+
 				split := strings.Split(variant.Audio, "-")
+				fmt.Println(split)
+
 				length := len(split)
+				fmt.Println("SampleRate =", split[length-2])
+				fmt.Println("BitDepth   =", split[length-1])
+				fmt.Println("AlacMax    =", Config.AlacMax)
+
 				length_int, err := strconv.Atoi(split[length-2])
 				if err != nil {
 					return "", "", err
+				}
+				max := Config.AlacMax
+				if max == 0 {
+					max = 192000
 				}
 				if length_int <= Config.AlacMax {
 					if !debug_mode && !more_mode {

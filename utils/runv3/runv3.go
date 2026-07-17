@@ -3,10 +3,8 @@ package runv3
 import (
 	"context"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"path/filepath"
-	"time"
 
 	"github.com/go-resty/resty/v2"
 	"google.golang.org/protobuf/proto"
@@ -19,7 +17,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/Eyevinn/mp4ff/mp4"
+	"github.com/itouakirai/mp4ff/mp4"
 
 	"encoding/json"
 	"net/http"
@@ -104,6 +102,40 @@ func AfterRequest(response *resty.Response) ([]byte, error) {
 	return license, nil
 }
 
+func getPlaybackHeaders(authtoken string, mutoken string) map[string]string {
+	headers := map[string]string{
+		"User-Agent":          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+		"Origin":              "https://music.apple.com",
+		"Referer":             "https://music.apple.com/",
+		"Accept":              "application/vnd.apple.mpegurl,application/x-mpegURL,text/plain;q=0.8,*/*;q=0.5",
+		"X-Apple-Store-Front": "143441-1,25",
+	}
+	if mutoken != "" {
+		headers["x-apple-music-user-token"] = mutoken
+		headers["Media-User-Token"] = mutoken
+	}
+	return headers
+}
+
+func getURLWithHeaders(url string, authtoken string, mutoken string) ([]byte, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	for key, value := range getPlaybackHeaders(authtoken, mutoken) {
+		req.Header.Set(key, value)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("request failed with status %s", resp.Status)
+	}
+	return io.ReadAll(resp.Body)
+}
+
 func GetWebplayback(adamId string, authtoken string, mutoken string, mvmode bool) (string, string, string, error) {
 	url := "https://play.music.apple.com/WebObjects/MZPlay.woa/wa/webPlayback"
 	postData := map[string]string{
@@ -173,6 +205,47 @@ type Songlist struct {
 	Status int `json:"status"`
 }
 
+func ResolveStationVariantPlaylist(masterURL string, authtoken string, mutoken string) (string, error) {
+	body, err := getURLWithHeaders(masterURL, authtoken, mutoken)
+	if err != nil {
+		return "", err
+	}
+	masterString := string(body)
+	from, listType, err := m3u8.DecodeFrom(strings.NewReader(masterString), true)
+	if err != nil {
+		return "", err
+	}
+	if listType != m3u8.MASTER {
+		return masterURL, nil
+	}
+	masterPlaylist := from.(*m3u8.MasterPlaylist)
+	var preferred string
+	for _, variant := range masterPlaylist.Variants {
+		if variant == nil {
+			continue
+		}
+		uri := variant.URI
+		if strings.Contains(uri, "256") || strings.Contains(uri, "256_6") {
+			preferred = uri
+			break
+		}
+		if preferred == "" {
+			preferred = uri
+		}
+	}
+	if preferred == "" {
+		return masterURL, nil
+	}
+	if strings.HasPrefix(preferred, "http") {
+		return preferred, nil
+	}
+	lastSlashIndex := strings.LastIndex(masterURL, "/")
+	if lastSlashIndex == -1 {
+		return masterURL, nil
+	}
+	return masterURL[:lastSlashIndex+1] + preferred, nil
+}
+
 func extractKidBase64(b string, mvmode bool) (string, string, string, error) {
 	resp, err := http.Get(b)
 	if err != nil {
@@ -182,9 +255,7 @@ func extractKidBase64(b string, mvmode bool) (string, string, string, error) {
 	if resp.StatusCode != http.StatusOK {
 		return "", "", "", errors.New(resp.Status)
 	}
-	// Limit read to 10MB to prevent excessive memory usage
-	limitedReader := io.LimitReader(resp.Body, 10*1024*1024)
-	body, err := io.ReadAll(limitedReader)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -311,19 +382,7 @@ func Run(adamId string, trackpath string, authtoken string, mutoken string, mvmo
 		}
 	}
 	if mvmode {
-		// Decode kidBase64 and convert to hex for mp4decrypt --key format
-		kidBytes, err := base64.StdEncoding.DecodeString(kidBase64)
-		if err != nil {
-			fmt.Printf("Warning: failed to decode KID from base64: %v, falling back to legacy format\n", err)
-			// Legacy format is incorrect, so we should return an error or handle it properly.
-			// For now, let's try to construct the key as if the decoding didn't fail,
-			// as the keystr might be the correct one.
-			// This is a temporary fix until we can confirm the correct behavior.
-			keyAndUrls := "1:" + keystr + ";" + fileurl
-			return keyAndUrls, nil
-		}
-		kidHex := hex.EncodeToString(kidBytes)
-		keyAndUrls := kidHex + ":" + keystr + ";" + fileurl
+		keyAndUrls := "1:" + keystr + ";" + fileurl
 		return keyAndUrls, nil
 	}
 	body := extsong(fileurl)
@@ -385,9 +444,7 @@ func downloadSegment(url string, index int, wg *sync.WaitGroup, segmentsChan cha
 		return
 	}
 
-	// Limit segment size to 50MB to prevent excessive memory usage
-	limitedReader := io.LimitReader(resp.Body, 50*1024*1024)
-	data, err := io.ReadAll(limitedReader)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Printf("错误(分段 %d): 读取数据失败: %v\n", index, err)
 		return
@@ -403,8 +460,7 @@ func fileWriter(wg *sync.WaitGroup, segmentsChan <-chan Segment, outputFile io.W
 
 	// 缓冲区，用于存放乱序到达的分段
 	// key 是分段序号，value 是分段数据
-	// Pre-allocate with small capacity to reduce memory overhead
-	segmentBuffer := make(map[int][]byte, 10)
+	segmentBuffer := make(map[int][]byte)
 	nextIndex := 0 // 期望写入的下一个分段的序号
 
 	for segment := range segmentsChan {
@@ -460,19 +516,12 @@ func ExtMvData(keyAndUrls string, savePath string) error {
 	defer tempFile.Close()
 
 	var downloadWg, writerWg sync.WaitGroup
-	// Reduce buffer size to lower memory usage - buffer only needs to hold segments being processed
-	bufferSize := 20
-	if len(urls) < bufferSize {
-		bufferSize = len(urls)
-	}
-	segmentsChan := make(chan Segment, bufferSize)
+	segmentsChan := make(chan Segment, len(urls))
 	// --- 新增代码: 定义最大并发数 ---
-	const maxConcurrency = 5 // Reduced from 10 to lower system resource usage
+	const maxConcurrency = 10
 	// --- 新增代码: 创建带缓冲的 Channel 作为信号量 ---
 	limiter := make(chan struct{}, maxConcurrency)
-	client := &http.Client{
-		Timeout: 5 * time.Minute, // Increased timeout for slow/unstable connections
-	}
+	client := &http.Client{}
 
 	// 初始化进度条
 	bar := progressbar.DefaultBytes(-1, "Downloading...")
@@ -503,16 +552,12 @@ func ExtMvData(keyAndUrls string, savePath string) error {
 	// 等待写入 Goroutine 完成所有写入和缓冲处理
 	writerWg.Wait()
 
-	// Properly finish the progress bar to clear its line
-	bar.Finish()
-	fmt.Print("\r\033[K") // Clear the current line completely
-
 	// 显式关闭文件（defer会再次调用，但重复关闭是安全的）
 	if err := tempFile.Close(); err != nil {
 		fmt.Printf("关闭临时文件失败: %v\n", err)
 		return err
 	}
-	fmt.Println("Downloaded.")
+	fmt.Println("\nDownloaded.")
 
 	cmd1 := exec.Command("mp4decrypt", "--key", key, tempFile.Name(), filepath.Base(savePath))
 	cmd1.Dir = filepath.Dir(savePath) //设置mp4decrypt的工作目录以解决中文路径错误
@@ -545,7 +590,6 @@ func DecryptMP4(r io.Reader, key []byte, w io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("failed to decrypt init: %w", err)
 	}
-	InjectElst(inMp4.Init, "")
 	if err = inMp4.Init.Encode(w); err != nil {
 		return fmt.Errorf("failed to write init: %w", err)
 	}
@@ -566,38 +610,4 @@ func DecryptMP4(r io.Reader, key []byte, w io.Writer) error {
 		}
 	}
 	return nil
-}
-
-// InjectElst adds an Edit List box to the init segment to skip encoder delay samples
-func InjectElst(init *mp4.InitSegment, codecName string) {
-	const encoderDelay = int64(2112)
-	needsElst := map[string]bool{
-		"alac":         true,
-		"ec3":          true,
-		"aac":          true,
-		"aac-he":       true,
-		"aac-binaural": true,
-		"aac-downmix":  true,
-		// "aac-lc" is intentionally absent
-	}
-	if !needsElst[codecName] {
-		return
-	}
-	for _, trak := range init.Moov.Traks {
-		elst := &mp4.ElstBox{
-			Version: 1,
-			Entries: []mp4.ElstEntry{
-				{
-					SegmentDuration:   0,
-					MediaTime:         encoderDelay,
-					MediaRateInteger:  1,
-					MediaRateFraction: 0,
-				},
-			},
-		}
-		edts := &mp4.EdtsBox{}
-		edts.AddChild(elst)
-		edts.Elst = append(edts.Elst, elst)
-		trak.AddChild(edts)
-	}
 }
