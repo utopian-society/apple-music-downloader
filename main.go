@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -60,6 +61,7 @@ var (
 	mv_audio_type      *string
 	aac_type           *string
 	aac_max            *int
+	stationDuration    *time.Duration
 	Config             structs.ConfigSet
 	counter            structs.Counter
 	okDict             = make(map[string][]int)
@@ -1238,7 +1240,7 @@ func ripTrack(track *task.Track, token string, mediaUserToken string) {
 	okDict[track.PreID] = append(okDict[track.PreID], track.TaskNum)
 }
 
-func ripStation(albumId string, token string, storefront string, mediaUserToken string) error {
+func ripStation(albumId string, token string, storefront string, mediaUserToken string, dlCtx context.Context) error {
 	station := task.NewStation(storefront, albumId)
 	err := station.GetResp(mediaUserToken, token, Config.Language)
 	if err != nil {
@@ -1247,8 +1249,13 @@ func ripStation(albumId string, token string, storefront string, mediaUserToken 
 	fmt.Println(" -", station.Type)
 	meta := station.Resp
 
+	// Station streams only support AAC; ignore user codec flags for stream-type stations.
+	// For stations with tracks (type "tracks"), honour the user's codec preference.
 	var Codec string
-	if dl_atmos {
+	if station.Type == "stream" {
+		// Live radio streams are AAC-only regardless of --atmos / --aac flags.
+		Codec = "AAC"
+	} else if dl_atmos {
 		Codec = "ATMOS"
 	} else if dl_aac {
 		Codec = "AAC"
@@ -1273,18 +1280,18 @@ func ripStation(albumId string, token string, storefront string, mediaUserToken 
 	}
 	var singerFolder string
 	if singerFoldername != "" {
-		if dl_atmos {
-			singerFolder = filepath.Join(Config.AtmosSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
-		} else if dl_aac {
+		if station.Type == "stream" || dl_aac {
 			singerFolder = filepath.Join(Config.AacSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
+		} else if dl_atmos {
+			singerFolder = filepath.Join(Config.AtmosSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
 		} else {
 			singerFolder = filepath.Join(Config.AlacSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
 		}
 	} else {
-		if dl_atmos {
-			singerFolder = Config.AtmosSaveFolder
-		} else if dl_aac {
+		if station.Type == "stream" || dl_aac {
 			singerFolder = Config.AacSaveFolder
+		} else if dl_atmos {
+			singerFolder = Config.AtmosSaveFolder
 		} else {
 			singerFolder = Config.AlacSaveFolder
 		}
@@ -1397,11 +1404,15 @@ func ripStation(albumId string, token string, storefront string, mediaUserToken 
 			counter.Error++
 			return err
 		}
-		err = runv3.ExtMvData(keyAndUrls, trackPath)
+		err = runv3.ExtMvDataWithContext(dlCtx, keyAndUrls, trackPath)
 		if err != nil {
-			fmt.Println("Failed to download station stream.", err)
-			counter.Error++
-			return err
+			if dlCtx.Err() != nil {
+				fmt.Printf("Station stream recording stopped after timeout: %v\n", dlCtx.Err())
+			} else {
+				fmt.Println("Failed to download station stream.", err)
+				counter.Error++
+				return err
+			}
 		}
 		// tags embedding continues...
 		tags := []string{
@@ -2461,7 +2472,20 @@ func processURL(urlRaw string, albumNum int, albumTotal int, token string, mutex
 			mutex.Unlock()
 			return
 		}
-		err := ripStation(albumId, token, storefront, Config.MediaUserToken)
+		// Build a context for the station download. For live "stream" stations a
+		// --duration timeout is optional; if not provided it will download the current window.
+		var dlCtx context.Context
+		var dlCancel context.CancelFunc
+		if stationDuration != nil && *stationDuration > 0 {
+			dlCtx, dlCancel = context.WithTimeout(context.Background(), *stationDuration)
+			defer dlCancel()
+			fmt.Printf(" [AAC, duration=%s]", stationDuration.String())
+		} else {
+			dlCtx = context.Background()
+			dlCancel = func() {}
+			defer dlCancel()
+		}
+		err := ripStation(albumId, token, storefront, Config.MediaUserToken, dlCtx)
 		if err != nil {
 			mutex.Lock()
 			fmt.Println("Failed to rip station:", err)
@@ -2522,6 +2546,7 @@ func main() {
 	aac_max = pflag.Int("aac-max", Config.AacMax, "Specify the max quality for download aac")
 	mv_audio_type = pflag.String("mv-audio-type", Config.MVAudioType, "Select MV audio type, atmos ac3 aac")
 	mv_max = pflag.Int("mv-max", Config.MVMax, "Specify the max quality for download MV")
+	stationDuration = pflag.Duration("duration", 0, "Recording duration for live station streams (e.g. 30m, 1h). Optional; if not provided, the current playlist window will be downloaded.")
 
 	pflag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] [url1 url2 ...]\n", "[main | main.exe | go run main.go]")

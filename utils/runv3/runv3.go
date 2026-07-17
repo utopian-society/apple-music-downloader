@@ -300,6 +300,7 @@ func extractKidBase64(b string, mvmode bool) (string, string, string, error) {
 	}
 	return kidbase64, urlBuilder.String(), uriPrefix, nil
 }
+
 func extsong(b string) bytes.Buffer {
 	resp, err := http.Get(b)
 	if err != nil {
@@ -328,6 +329,7 @@ func extsong(b string) bytes.Buffer {
 	io.Copy(io.MultiWriter(&buffer, bar), resp.Body)
 	return buffer
 }
+
 func Run(adamId string, trackpath string, authtoken string, mutoken string, mvmode bool, serverUrl string) (string, error) {
 	var keystr string //for mv key
 	var fileurl string
@@ -502,7 +504,18 @@ func fileWriter(wg *sync.WaitGroup, segmentsChan <-chan Segment, outputFile io.W
 	}
 }
 
+// ExtMvData downloads and decrypts segmented MP4 data. It delegates to
+// ExtMvDataWithContext with a background (unbounded) context.
 func ExtMvData(keyAndUrls string, savePath string) error {
+	return ExtMvDataWithContext(context.Background(), keyAndUrls, savePath)
+}
+
+// ExtMvDataWithContext is like ExtMvData but respects ctx for cancellation.
+// When ctx is cancelled (e.g. a --duration timeout fires for a live station
+// stream), it stops launching new segment downloads, waits for in-flight ones
+// to finish, then decrypts and saves whatever was collected. This gives a
+// clean partial recording instead of an unbounded download.
+func ExtMvDataWithContext(ctx context.Context, keyAndUrls string, savePath string) error {
 	segments := strings.Split(keyAndUrls, ";")
 	key := segments[0]
 	//fmt.Println(key)
@@ -531,9 +544,17 @@ func ExtMvData(keyAndUrls string, savePath string) error {
 	writerWg.Add(1)
 	go fileWriter(&writerWg, segmentsChan, barWriter, len(urls))
 
-	// 启动下载 Goroutines
+	// 启动下载 Goroutines。For live station streams, ctx may time out mid-loop;
+	// we stop queueing further segments so the recording ends cleanly.
 	for i, url := range urls {
-		// 在启动 Goroutine 前，向 limiter 发送一个值来“获取”一个槽位
+		select {
+		case <-ctx.Done():
+			// Timeout/cancellation: stop launching more segment downloads.
+			goto doneDownloading
+		default:
+		}
+
+		// 在启动 Goroutine 前，向 limiter 发送一个值来"获取"一个槽位
 		// 如果 limiter 已满 (达到10个)，这里会阻塞，直到有其他任务完成并释放槽位
 		//fmt.Printf("请求启动任务 %d...\n", i)
 		limiter <- struct{}{}
@@ -544,6 +565,7 @@ func ExtMvData(keyAndUrls string, savePath string) error {
 		go downloadSegment(url, i, &downloadWg, segmentsChan, client, limiter)
 	}
 
+doneDownloading:
 	// 等待所有下载任务完成
 	downloadWg.Wait()
 	// 下载完成后，关闭 Channel。写入 Goroutine 会在处理完 Channel 中所有数据后退出。
@@ -551,6 +573,7 @@ func ExtMvData(keyAndUrls string, savePath string) error {
 
 	// 等待写入 Goroutine 完成所有写入和缓冲处理
 	writerWg.Wait()
+	bar.Close()
 
 	// 显式关闭文件（defer会再次调用，但重复关闭是安全的）
 	if err := tempFile.Close(); err != nil {
