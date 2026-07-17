@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"main/utils/alacfix"
+	"github.com/utopian-society/apple-music-downloader/utils/alacfix"
 )
 
 func main() {

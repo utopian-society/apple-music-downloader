@@ -3,8 +3,8 @@ package metadata
 import (
 	"errors"
 	"io"
-	"main/utils/ampapi"
-	"main/utils/structs"
+	"github.com/utopian-society/apple-music-downloader/utils/ampapi"
+	"github.com/utopian-society/apple-music-downloader/utils/structs"
 	"math"
 	"net/http"
 	"os"
@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhaarey/go-mp4tag"
+	"github.com/utopian-society/go-mp4tag"
 )
 
 var countryNames = map[string]string{

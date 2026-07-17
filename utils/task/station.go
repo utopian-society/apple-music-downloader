@@ -12,7 +12,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 	"github.com/olekukonko/tablewriter/tw"
 
-	"main/utils/ampapi"
+	"github.com/utopian-society/apple-music-downloader/utils/ampapi"
 )
 
 type Station struct {

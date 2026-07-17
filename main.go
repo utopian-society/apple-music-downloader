@@ -23,15 +23,15 @@ import (
 	"sync"
 	"time"
 
-	"main/utils/alacfix"
-	"main/utils/ampapi"
-	"main/utils/lyrics"
-	"main/utils/metadata"
-	"main/utils/runv2"
-	"main/utils/runv3"
-	"main/utils/structs"
-	"main/utils/subtitle"
-	"main/utils/task"
+	"github.com/utopian-society/apple-music-downloader/utils/alacfix"
+	"github.com/utopian-society/apple-music-downloader/utils/ampapi"
+	"github.com/utopian-society/apple-music-downloader/utils/lyrics"
+	"github.com/utopian-society/apple-music-downloader/utils/metadata"
+	"github.com/utopian-society/apple-music-downloader/utils/runv2"
+	"github.com/utopian-society/apple-music-downloader/utils/runv3"
+	"github.com/utopian-society/apple-music-downloader/utils/structs"
+	"github.com/utopian-society/apple-music-downloader/utils/subtitle"
+	"github.com/utopian-society/apple-music-downloader/utils/task"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
@@ -39,7 +39,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 	"github.com/olekukonko/tablewriter/tw"
 	"github.com/spf13/pflag"
-	"github.com/zhaarey/go-mp4tag"
+	"github.com/utopian-society/go-mp4tag"
 	"gopkg.in/yaml.v2"
 )
 
@@ -3278,22 +3278,7 @@ func extractMedia(b string, more_mode bool) (string, string, error) {
 		return "", "", nil
 	}
 	var Quality string
-	fmt.Printf("%+v\n", Config)
-	fmt.Println("===== SELECTOR =====")
-	for _, variant := range master.Variants {
-		fmt.Printf("Codec=%q Audio=%q AvgBW=%d BW=%d\n",
-			variant.Codecs,
-			variant.Audio,
-			variant.AverageBandwidth,
-			variant.Bandwidth,
-		)
-	}
-	fmt.Printf("dl_atmos=%v dl_aac=%v AlacMax=%d\n",
-		dl_atmos,
-		dl_aac,
-		Config.AlacMax,
-	)
-	fmt.Println("====================")
+	// UI selector and config dump removed
 	for _, variant := range master.Variants {
 		if dl_atmos {
 			if variant.Codecs == "ec-3" && strings.Contains(variant.Audio, "atmos") {

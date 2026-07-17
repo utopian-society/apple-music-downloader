@@ -1,14 +1,22 @@
-module main
+module github.com/utopian-society/apple-music-downloader
 
 go 1.25.0
 
 require (
+	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Eyevinn/mp4ff v0.54.0
 	github.com/aead/cmac v0.0.0-20160719120800-7af84192f0b1
+	github.com/beevik/etree v1.7.0
+	github.com/fatih/color v1.19.0
+	github.com/go-resty/resty/v2 v2.17.2
 	github.com/grafov/m3u8 v0.12.1
+	github.com/itouakirai/mp4ff v0.0.0-20250930132656-98812935a1c7
+	github.com/olekukonko/tablewriter v1.1.4
 	github.com/schollz/progressbar/v3 v3.19.1
 	github.com/spf13/pflag v1.0.10
+	github.com/utopian-society/go-mp4tag v0.0.0-20260717153244-9768b0e082db
 	google.golang.org/protobuf v1.36.11
+	gopkg.in/yaml.v2 v2.4.0
 	lukechampine.com/frand v1.5.1
 )
 
@@ -36,15 +44,4 @@ require (
 	golang.org/x/term v0.44.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
-)
-
-require (
-	github.com/AlecAivazis/survey/v2 v2.3.7
-	github.com/beevik/etree v1.7.0
-	github.com/fatih/color v1.19.0
-	github.com/go-resty/resty/v2 v2.17.2
-	github.com/itouakirai/mp4ff v0.0.0-20250930132656-98812935a1c7
-	github.com/olekukonko/tablewriter v1.1.4
-	github.com/zhaarey/go-mp4tag v0.0.0-20260509131819-a89fa417cd97
-	gopkg.in/yaml.v2 v2.4.0
 )

@@ -19,7 +19,7 @@ import (
 	"encoding/binary"
 	"github.com/schollz/progressbar/v3"
 
-	"main/utils/structs"
+	"github.com/utopian-society/apple-music-downloader/utils/structs"
 )
 
 const prefetchKey = "skd://itunes.apple.com/P000000000/s1/e1"

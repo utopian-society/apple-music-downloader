@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-resty/resty/v2"
 
-	wv "main/utils/runv3/cdm"
+	wv "github.com/utopian-society/apple-music-downloader/utils/runv3/cdm"
 )
 
 type Key struct {
