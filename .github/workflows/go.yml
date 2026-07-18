@@ -1,5 +1,4 @@
 name: Go
-
 on:
   push:
     branches: [ "main" ]
@@ -7,81 +6,82 @@ on:
     branches: [ "main" ]
 
 jobs:
-
   build-windows:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v7
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.23.1'
-        cache-dependency-path: go.sum
-    - name: Build
-      run: |
-        go build -o main.exe -v ./main.go
-    - name: Create a new directory and copy files
-      run: |
-        mkdir -p alac
-        cp agent.js alac/
-        cp agent-arm64.js alac/
-        cp config.yaml.example alac/config.yaml
-        cp README.md alac/
-        cp main.exe alac/
-    - name: Upload apple-music-alac-atmos-downloader
-      uses: actions/upload-artifact@v7
-      with:
-        name: apple-music-alac-atmos-downloader-windows
-        path: alac/*
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.0'
+          cache: true
+      - name: Build
+        run: |
+          go build -o apple-music-downloader.exe -v .
+      - name: Create distribution
+        run: |
+          mkdir -p alac
+          copy agent.js alac\
+          copy agent-arm64.js alac\
+          copy config.yaml.example alac\config.yaml
+          copy README.md alac\
+          copy apple-music-downloader.exe alac\
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-music-alac-atmos-downloader-windows
+          path: alac
 
   build-linux:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v7
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.23.1'
-        cache-dependency-path: go.sum
-    - name: Build
-      run: |
-        go build -o main -v ./main.go
-    - name: Create a new directory and copy files
-      run: |
-        mkdir -p alac
-        cp agent.js alac/
-        cp agent-arm64.js alac/
-        cp config.yaml.example alac/config.yaml
-        cp README.md alac/
-        cp main alac/
-    - name: Upload apple-music-alac-atmos-downloader
-      uses: actions/upload-artifact@v7
-      with:
-        name: apple-music-alac-atmos-downloader-linux
-        path: alac/*
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.0'
+          cache: true
+      - name: Build
+        run: |
+          go build -o apple-music-downloader -v .
+      - name: Create distribution
+        run: |
+          mkdir -p alac
+          cp agent.js alac/
+          cp agent-arm64.js alac/
+          cp config.yaml.example alac/config.yaml
+          cp README.md alac/
+          cp apple-music-downloader alac/
+          chmod +x alac/apple-music-downloader
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-music-alac-atmos-downloader-linux
+          path: alac
 
   build-macos:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v7
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.23.1'
-        cache-dependency-path: go.sum
-    - name: Build
-      run: |
-        go build -o main -v ./main.go
-    - name: Create a new directory and copy files
-      run: |
-        mkdir -p alac
-        cp agent.js alac/
-        cp agent-arm64.js alac/
-        cp config.yaml.example alac/config.yaml
-        cp README.md alac/
-        cp main alac/
-    - name: Upload apple-music-alac-atmos-downloader
-      uses: actions/upload-artifact@v7
-      with:
-        name: apple-music-alac-atmos-downloader-macos
-        path: alac/*
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.0'
+          cache: true
+      - name: Build
+        run: |
+          go build -o apple-music-downloader -v .
+      - name: Create distribution
+        run: |
+          mkdir -p alac
+          cp agent.js alac/
+          cp agent-arm64.js alac/
+          cp config.yaml.example alac/config.yaml
+          cp README.md alac/
+          cp apple-music-downloader alac/
+          chmod +x alac/apple-music-downloader
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-music-alac-atmos-downloader-macos
+          path: alac
