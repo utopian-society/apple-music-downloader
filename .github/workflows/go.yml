@@ -27,7 +27,7 @@ jobs:
           copy README.md alac\
           copy apple-music-downloader.exe alac\
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: apple-music-alac-atmos-downloader-windows
           path: alac
@@ -54,7 +54,7 @@ jobs:
           cp apple-music-downloader alac/
           chmod +x alac/apple-music-downloader
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: apple-music-alac-atmos-downloader-linux
           path: alac
@@ -81,7 +81,7 @@ jobs:
           cp apple-music-downloader alac/
           chmod +x alac/apple-music-downloader
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: apple-music-alac-atmos-downloader-macos
           path: alac
