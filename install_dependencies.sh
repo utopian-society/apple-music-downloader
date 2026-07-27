@@ -1,8 +1,8 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-# ── 0. FFmpeg ─────────────────────────────────────────────────────────────────
-sudo apt install -y ffmpeg
+# ── 0. FFmpeg + curl + Golang ─────────────────────────────────────────────────
+sudo apt install -y ffmpeg curl golang-go
 
 # ── 1. GPAC ───────────────────────────────────────────────────────────────────
 sudo apt install -y git build-essential pkg-config cmake \
@@ -13,7 +13,7 @@ sudo apt install -y git build-essential pkg-config cmake \
 git clone https://github.com/gpac/gpac.git
 cd gpac
 ./configure
-make -j$(nproc)
+make -j"$(nproc)"
 sudo make install
 cd ..
 
@@ -21,6 +21,7 @@ cd ..
 sudo apt-get install -y libclang-dev clang libtesseract-dev
 
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+# shellcheck disable=SC1091
 source "$HOME/.cargo/env"
 cargo --version
 
@@ -51,3 +52,4 @@ MP4Box -version 2>&1 | head -1
 ccextractor --version 2>&1 | head -1
 mp4decrypt 2>&1 | head -1
 ffmpeg -version 2>&1 | head -1
+go version 2>&1 | head -1
