@@ -15,7 +15,7 @@ require (
 	github.com/schollz/progressbar/v3 v3.19.1
 	github.com/spf13/pflag v1.0.10
 	github.com/utopian-society/go-mp4tag v0.0.0-20260717153244-9768b0e082db
-	google.golang.org/protobuf v1.36.11
+	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v2 v2.4.0
 	lukechampine.com/frand v1.5.1
 )
