@@ -3021,6 +3021,8 @@ func extractMvAudio(c string) (string, error) {
 
 	audio := from.(*m3u8.MasterPlaylist)
 
+	// Some older or lower-bitrate MVs do not expose preferred audio groups (audio-atmos, audio-ac3, audio-stereo-256).
+	// We first search for preferred groups based on Config.MVAudioType. If no streams match, we fall back to any audio alternative.
 	var audioPriority = []string{"audio-atmos", "audio-ac3", "audio-stereo-256"}
 	if Config.MVAudioType == "ac3" {
 		audioPriority = []string{"audio-ac3", "audio-stereo-256"}
@@ -3035,28 +3037,64 @@ func extractMvAudio(c string) (string, error) {
 		Rank    int
 		GroupID string
 	}
-	var audioStreams []AudioStream
 
-	for _, variant := range audio.Variants {
-		for _, audiov := range variant.Alternatives {
-			if audiov.URI != "" {
-				for _, priority := range audioPriority {
-					if audiov.GroupId == priority {
-						matches := re.FindStringSubmatch(audiov.URI)
-						if len(matches) == 2 {
-							var rank int
-							fmt.Sscanf(matches[1], "%d", &rank)
-							streamUrl, _ := MediaUrl.Parse(audiov.URI)
-							audioStreams = append(audioStreams, AudioStream{
-								URL:     streamUrl.String(),
-								Rank:    rank,
-								GroupID: audiov.GroupId,
-							})
-						}
+	getAudioStreams := func(filterFunc func(groupID string) bool) []AudioStream {
+		var streams []AudioStream
+		seen := make(map[string]bool)
+		for _, variant := range audio.Variants {
+			for _, audiov := range variant.Alternatives {
+				if audiov.URI != "" && filterFunc(audiov.GroupId) {
+					streamUrl, err := MediaUrl.Parse(audiov.URI)
+					if err != nil {
+						continue
 					}
+					urlStr := streamUrl.String()
+					if seen[urlStr] {
+						continue
+					}
+					seen[urlStr] = true
+
+					var rank int
+					matches := re.FindStringSubmatch(audiov.URI)
+					if len(matches) == 2 {
+						fmt.Sscanf(matches[1], "%d", &rank)
+					}
+					streams = append(streams, AudioStream{
+						URL:     urlStr,
+						Rank:    rank,
+						GroupID: audiov.GroupId,
+					})
 				}
 			}
 		}
+		return streams
+	}
+
+	var audioStreams []AudioStream
+
+	// Priority 1: Match exact preference order group by group to maintain exact priority
+	for _, priority := range audioPriority {
+		streams := getAudioStreams(func(groupID string) bool {
+			return groupID == priority
+		})
+		if len(streams) > 0 {
+			audioStreams = streams
+			break
+		}
+	}
+
+	// Priority 2: Fallback to any alternative starting with "audio-" if preferred groups yield no streams
+	if len(audioStreams) == 0 {
+		audioStreams = getAudioStreams(func(groupID string) bool {
+			return strings.HasPrefix(groupID, "audio-") || groupID == "audio"
+		})
+	}
+
+	// Priority 3: Fallback to any available audio alternative regardless of groupID prefix
+	if len(audioStreams) == 0 {
+		audioStreams = getAudioStreams(func(groupID string) bool {
+			return true
+		})
 	}
 
 	if len(audioStreams) == 0 {
