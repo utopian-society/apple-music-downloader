@@ -6,7 +6,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Eyevinn/mp4ff v0.55.0
 	github.com/aead/cmac v0.0.0-20160719120800-7af84192f0b1
-	github.com/beevik/etree v1.7.0
+	github.com/beevik/etree v1.7.1
 	github.com/fatih/color v1.19.0
 	github.com/go-resty/resty/v2 v2.17.2
 	github.com/grafov/m3u8 v0.12.1
