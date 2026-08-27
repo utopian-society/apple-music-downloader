@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
-	github.com/Eyevinn/mp4ff v0.55.0
+	github.com/Eyevinn/mp4ff v0.56.0
 	github.com/aead/cmac v0.0.0-20160719120800-7af84192f0b1
 	github.com/beevik/etree v1.7.0
 	github.com/fatih/color v1.19.0
