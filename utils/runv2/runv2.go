@@ -47,9 +47,10 @@ func (b *TimedResponseBody) Read(p []byte) (int, error) {
 func Run(adamId string, playlistUrl string, outfile string, Config structs.ConfigSet, codecName string) error {
 	var err error
 	var optstimeout uint
-	optstimeout = 0
+	optstimeout = 30000
 	timeout := time.Duration(optstimeout * uint(time.Millisecond))
 	header := make(http.Header)
+	header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
 
 	req, err := http.NewRequest("GET", playlistUrl, nil)
 	if err != nil {

@@ -22,8 +22,8 @@ type CDM struct {
 	clientID   []byte
 	sessionID  [32]byte
 
-	widevineCencHeader      WidevineCencHeader
-	signedDeviceCertificate SignedDeviceCertificate
+	widevineCencHeader      *WidevineCencHeader
+	signedDeviceCertificate *SignedDeviceCertificate
 	privacyMode             bool
 }
 
@@ -69,7 +69,7 @@ func NewCDM(privateKey string, clientID []byte, initData []byte) (CDM, error) {
 		privateKey: keyParsed,
 		clientID:   clientID,
 
-		widevineCencHeader: widevineCencHeader,
+		widevineCencHeader: &widevineCencHeader,
 
 		sessionID: sessionID,
 	}, nil
@@ -88,7 +88,8 @@ func (c *CDM) SetServiceCertificate(certData []byte) error {
 	if err := proto.Unmarshal(certData, &message); err != nil {
 		return err
 	}
-	if err := proto.Unmarshal(message.Msg, &c.signedDeviceCertificate); err != nil {
+	c.signedDeviceCertificate = &SignedDeviceCertificate{}
+	if err := proto.Unmarshal(message.Msg, c.signedDeviceCertificate); err != nil {
 		return err
 	}
 	c.privacyMode = true
@@ -97,7 +98,7 @@ func (c *CDM) SetServiceCertificate(certData []byte) error {
 
 func (c *CDM) GetServiceCertificate() *SignedDeviceCertificate {
 
-	return &c.signedDeviceCertificate
+	return c.signedDeviceCertificate
 }
 
 // Generates the license request data.  This is sent to the license server via
@@ -115,7 +116,7 @@ func (c *CDM) GetLicenseRequest() ([]byte, error) {
 		licenseRequest.Type = &v
 	}
 
-	licenseRequest.Msg.ContentId.CencId.Pssh = &c.widevineCencHeader
+	licenseRequest.Msg.ContentId.CencId.Pssh = c.widevineCencHeader
 
 	{
 		v := LicenseType_DEFAULT

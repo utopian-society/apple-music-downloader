@@ -2569,6 +2569,39 @@ func main() {
 
 	args := pflag.Args()
 
+	if Config.GetAccountFromDevice {
+		var resp *http.Response
+		var err error
+		for i := 0; i < 10; i++ {
+			resp, err = http.Get("http://" + Config.GetAccountPort)
+			if err == nil {
+				break
+			}
+			if i == 9 {
+				fmt.Println("[WARNING] Failed to request wrapper account-info:", err)
+			}
+			time.Sleep(1 * time.Second)
+		}
+		if err == nil {
+			if resp.StatusCode == 200 {
+				var info struct {
+					MusicToken string `json:"music_token"`
+				}
+				if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+					fmt.Println("[WARNING] Failed to parse wrapper account-info:", err)
+				} else if info.MusicToken != "" {
+					Config.MediaUserToken = info.MusicToken
+					fmt.Println("[INFO] Auto-fetched media-user-token from wrapper")
+				} else {
+					fmt.Println("[WARNING] Got empty music_token from wrapper")
+				}
+			} else {
+				fmt.Printf("[WARNING] Wrapper returned non-200 status: %d\n", resp.StatusCode)
+			}
+			resp.Body.Close()
+		}
+	}
+
 	// If --batch flag is used, check if there are additional .txt files in args
 	if len(batch_files) > 0 && len(args) > 0 {
 		// Add any .txt files from args to batch_files

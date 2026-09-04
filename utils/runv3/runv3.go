@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/go-resty/resty/v2"
 	"google.golang.org/protobuf/proto"
@@ -302,7 +303,14 @@ func extractKidBase64(b string, mvmode bool) (string, string, string, error) {
 }
 
 func extsong(b string) bytes.Buffer {
-	resp, err := http.Get(b)
+	req, err := http.NewRequest("GET", b, nil)
+	if err != nil {
+		fmt.Printf("创建请求失败: %v\n", err)
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Printf("下载文件失败: %v\n", err)
 	}

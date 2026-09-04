@@ -14,6 +14,7 @@ English / [简体中文](docs/README-CN.md)
 7. **Batch download support** - Download multiple albums/playlists from text file(s) `go run main.go --batch urls.txt` or multiple files `go run main.go 1.txt 2.txt`
 8. **Disc folder separation** - Automatically organize multi-disc albums into separate disc folders (configurable via `separate-disc-folders` in config.yaml)
 9. **Music Video toggle** - Enable or disable music video downloads via `download-music-video` config option or `--dl-mv` flag
+10. **Auto-fetch media-user-token** - Opt-in feature to automatically retrieve the token from the wrapper's account-info endpoint (configurable via `get-account-from-device` in config.yaml)
 
 ### Special thanks to `chocomint` for creating `agent-arm64.js`
 

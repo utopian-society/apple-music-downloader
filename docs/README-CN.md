@@ -14,6 +14,7 @@
 7. **批量下载支持** - 从文本文件批量下载多个专辑/播放列表 `go run main.go --batch urls.txt` 或多个文件 `go run main.go 1.txt 2.txt`
 8. **分盘文件夹** - 多碟专辑自动按光盘分文件夹组织（可通过 config.yaml 中的 `separate-disc-folders` 配置）
 9. **MV下载开关** - 通过配置文件 `download-music-video` 选项或 `--dl-mv` 命令行参数控制是否下载MV
+10. **自动获取 media-user-token** - 可选功能，可从 wrapper 的 account-info 端点自动获取 token（可通过 config.yaml 中的 `get-account-from-device` 配置）
 
 ### 特别感谢 `chocomint` 创建 `agent-arm64.js`
 对于获取`aac-lc` `MV` `歌词` 必须填入有订阅的`media-user-token`
