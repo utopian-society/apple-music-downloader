@@ -14,7 +14,31 @@ English / [简体中文](docs/README-CN.md)
 7. **Batch download support** - Download multiple albums/playlists from text file(s) `go run main.go --batch urls.txt` or multiple files `go run main.go 1.txt 2.txt`
 8. **Disc folder separation** - Automatically organize multi-disc albums into separate disc folders (configurable via `separate-disc-folders` in config.yaml)
 9. **Music Video toggle** - Enable or disable music video downloads via `download-music-video` config option or `--dl-mv` flag
-10. **Auto-fetch media-user-token** - Opt-in feature to automatically retrieve the token from the wrapper's account-info endpoint (configurable via `get-account-from-device` in config.yaml)
+10. **Auto-fetch account credentials** - Opt-in feature to retrieve the media-user-token and account storefront from the wrapper's account-info endpoint (configurable via `get-account-from-device` in config.yaml). The storefront is resolved to the two-letter catalog code before metadata and lyrics requests.
+
+The MP4 `VENDOR` tag uses Apple's record-label metadata when it is present,
+followed by the track ISRC. Apple Music's public catalog API and iTunes Lookup
+do not expose a distributor field, so the downloader does not infer a
+distributor from an ISRC prefix. If Apple returns no record label, `VENDOR` is
+omitted; the wrapper supplies playback/account credentials, not distributor
+metadata.
+
+### Wrapper metadata limitation
+
+The public `WorldObservationLog/wrapper` source documents only four services:
+binary decryption (`10020`), M3U8 (`20020`), account JSON (`30020`), and key
+JSON (`40020`). The account endpoint returns only
+`{"storefront_id":"...","dev_token":"...","music_token":"..."}`; its handler
+does not dispatch track, store, or ISRC queries. It exposes no iTunes Lookup,
+vendor, or distributor-metadata endpoint. Consequently, this project does not
+invent a wrapper URL or infer a distributor from an ISRC prefix. When the
+catalog record-label relationship is available, it remains the non-fatal
+fallback used for `LABEL`/`VENDOR`, with 5-second bounded requests.
+As a live check, requesting `/itunes/lookup?isrc=...` on the local `30020`
+service returns the same three account keys rather than track metadata.
+
+Sources: [wrapper service documentation](https://github.com/WorldObservationLog/wrapper/blob/main/README.md)
+and the [account handler](https://github.com/WorldObservationLog/wrapper/blob/main/main.c#L1164-L1217).
 
 ### Special thanks to `chocomint` for creating `agent-arm64.js`
 

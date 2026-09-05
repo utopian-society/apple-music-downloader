@@ -14,7 +14,29 @@
 7. **批量下载支持** - 从文本文件批量下载多个专辑/播放列表 `go run main.go --batch urls.txt` 或多个文件 `go run main.go 1.txt 2.txt`
 8. **分盘文件夹** - 多碟专辑自动按光盘分文件夹组织（可通过 config.yaml 中的 `separate-disc-folders` 配置）
 9. **MV下载开关** - 通过配置文件 `download-music-video` 选项或 `--dl-mv` 命令行参数控制是否下载MV
-10. **自动获取 media-user-token** - 可选功能，可从 wrapper 的 account-info 端点自动获取 token（可通过 config.yaml 中的 `get-account-from-device` 配置）
+10. **自动获取账户信息** - 可选功能，可从 wrapper 的 account-info 端点自动获取 media-user-token 和账户 storefront（可通过 config.yaml 中的 `get-account-from-device` 配置）；storefront 会先解析为 API 使用的两位国家代码。
+
+MP4 的 `VENDOR` 标签会在 Apple 提供 record-label 元数据时使用该值，
+再附加曲目的 ISRC。Apple Music 公共目录 API 和 iTunes Lookup 没有提供
+发行商字段，因此程序不会根据 ISRC 前缀推断发行商；如果 Apple 没有返回
+record label，则省略 `VENDOR`。wrapper 只提供播放和账户凭据，不提供发行商
+元数据。
+
+### wrapper 元数据限制
+
+公开的 `WorldObservationLog/wrapper` 仅文档化四个服务：二进制解密
+（`10020`）、M3U8（`20020`）、账户 JSON（`30020`）和 key JSON
+（`40020`）。账户端点只返回
+`{"storefront_id":"...","dev_token":"...","music_token":"..."}`，不会根据
+曲目、商店或 ISRC 分发查询，也没有 iTunes Lookup、vendor 或 distributor
+元数据端点。因此程序不会编造 wrapper URL，也不会根据 ISRC 前缀推断发行商。
+如果 Apple 目录提供 record-label relationship，程序会在有限超时内非致命地
+使用它作为 `LABEL`/`VENDOR` 的回退（请求超时为 5 秒）。
+实际请求本地 `30020` 服务的 `/itunes/lookup?isrc=...` 也只会返回相同的三个
+账户字段，而不会返回曲目元数据。
+
+来源：[wrapper 服务文档](https://github.com/WorldObservationLog/wrapper/blob/main/README.md)
+和[账户处理代码](https://github.com/WorldObservationLog/wrapper/blob/main/main.c#L1164-L1217)。
 
 ### 特别感谢 `chocomint` 创建 `agent-arm64.js`
 对于获取`aac-lc` `MV` `歌词` 必须填入有订阅的`media-user-token`

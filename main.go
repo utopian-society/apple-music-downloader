@@ -2121,8 +2121,8 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		"PERFORMER":   track.Resp.Attributes.ArtistName,
 		"RELEASETIME": track.Resp.Attributes.ReleaseDate,
 		"ISRC":        track.Resp.Attributes.Isrc,
-		"LABEL":       "",
-		"UPC":         "",
+		"LABEL":       track.AlbumData.Label(),
+		"UPC":         track.AlbumData.Attributes.Upc,
 	}
 
 	// Add Apple Music metadata
@@ -2155,7 +2155,9 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 	customTags["PURCHASEDATE"] = time.Now().Format("2006-01-02 15:04:05")
 
 	if track.Resp.Attributes.Isrc != "" {
-		customTags["VENDOR"] = ":isrc:" + track.Resp.Attributes.Isrc
+		if label := track.AlbumData.Label(); label != "" {
+			customTags["VENDOR"] = label + ":isrc:" + track.Resp.Attributes.Isrc
+		}
 	}
 
 	customGenre := ""
@@ -2296,14 +2298,14 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.TrackTotal = int16(track.AlbumData.Attributes.TrackCount)
 		t.AlbumArtist = track.AlbumData.Attributes.ArtistName
 		t.Custom["UPC"] = track.AlbumData.Attributes.Upc
-		t.Custom["LABEL"] = track.AlbumData.Attributes.RecordLabel
+		t.Custom["LABEL"] = track.AlbumData.Label()
 		// Update Vendor with label
-		if track.AlbumData.Attributes.RecordLabel != "" && track.Resp.Attributes.Isrc != "" {
-			t.Custom["VENDOR"] = track.AlbumData.Attributes.RecordLabel + ":isrc:" + track.Resp.Attributes.Isrc
+		if label := track.AlbumData.Label(); label != "" && track.Resp.Attributes.Isrc != "" {
+			t.Custom["VENDOR"] = label + ":isrc:" + track.Resp.Attributes.Isrc
 		}
 		t.Date = track.AlbumData.Attributes.ReleaseDate
 		t.Copyright = track.AlbumData.Attributes.Copyright
-		t.Publisher = track.AlbumData.Attributes.RecordLabel
+		t.Publisher = track.AlbumData.Label()
 		if Config.TagSortOrder {
 			t.AlbumArtistSort = track.AlbumData.Attributes.ArtistName
 		}
@@ -2312,14 +2314,14 @@ func writeMP4Tags(track *task.Track, lrc string) error {
 		t.TrackTotal = int16(track.AlbumData.Attributes.TrackCount)
 		t.AlbumArtist = track.AlbumData.Attributes.ArtistName
 		t.Custom["UPC"] = track.AlbumData.Attributes.Upc
-		t.Custom["LABEL"] = track.AlbumData.Attributes.RecordLabel
+		t.Custom["LABEL"] = track.AlbumData.Label()
 		// Update Vendor with label
-		if track.AlbumData.Attributes.RecordLabel != "" && track.Resp.Attributes.Isrc != "" {
-			t.Custom["VENDOR"] = track.AlbumData.Attributes.RecordLabel + ":isrc:" + track.Resp.Attributes.Isrc
+		if label := track.AlbumData.Label(); label != "" && track.Resp.Attributes.Isrc != "" {
+			t.Custom["VENDOR"] = label + ":isrc:" + track.Resp.Attributes.Isrc
 		}
 		t.Date = track.AlbumData.Attributes.ReleaseDate
 		t.Copyright = track.AlbumData.Attributes.Copyright
-		t.Publisher = track.AlbumData.Attributes.RecordLabel
+		t.Publisher = track.AlbumData.Label()
 		if Config.TagSortOrder {
 			t.AlbumArtistSort = track.AlbumData.Attributes.ArtistName
 		}
@@ -2570,10 +2572,11 @@ func main() {
 	args := pflag.Args()
 
 	if Config.GetAccountFromDevice {
+		wrapperClient := &http.Client{Timeout: 5 * time.Second}
 		var resp *http.Response
 		var err error
 		for i := 0; i < 10; i++ {
-			resp, err = http.Get("http://" + Config.GetAccountPort)
+			resp, err = wrapperClient.Get("http://" + Config.GetAccountPort)
 			if err == nil {
 				break
 			}
@@ -2585,20 +2588,42 @@ func main() {
 		if err == nil {
 			if resp.StatusCode == 200 {
 				var info struct {
-					MusicToken string `json:"music_token"`
+					MusicToken   string `json:"music_token"`
+					Storefront   string `json:"storefront"`
+					StorefrontID string `json:"storefront_id"`
 				}
 				if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
 					fmt.Println("[WARNING] Failed to parse wrapper account-info:", err)
-				} else if info.MusicToken != "" {
-					Config.MediaUserToken = info.MusicToken
-					fmt.Println("[INFO] Auto-fetched media-user-token from wrapper")
 				} else {
-					fmt.Println("[WARNING] Got empty music_token from wrapper")
+					wrapperStorefront := info.Storefront
+					if wrapperStorefront == "" {
+						wrapperStorefront = info.StorefrontID
+					}
+					if wrapperStorefront != "" {
+						fmt.Printf("[INFO] Wrapper storefront: %s\n", wrapperStorefront)
+					}
+					if info.MusicToken != "" {
+						Config.MediaUserToken = info.MusicToken
+						fmt.Println("[INFO] Auto-fetched media-user-token from wrapper")
+					} else {
+						fmt.Println("[WARNING] Got empty music_token from wrapper")
+					}
 				}
 			} else {
 				fmt.Printf("[WARNING] Wrapper returned non-200 status: %d\n", resp.StatusCode)
 			}
 			resp.Body.Close()
+		}
+	}
+
+	// Auto-detect storefront from Apple Music API if media-user-token is available
+	if Config.MediaUserToken != "" && token != "" {
+		detectedSF, sfErr := ampapi.GetUserStorefront(token, Config.MediaUserToken)
+		if sfErr != nil {
+			fmt.Println("[WARNING] Failed to auto-detect storefront:", sfErr)
+		} else if len(detectedSF) == 2 {
+			fmt.Printf("[INFO] Detected account storefront: %s\n", detectedSF)
+			Config.Storefront = detectedSF
 		}
 	}
 

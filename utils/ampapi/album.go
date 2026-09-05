@@ -7,7 +7,10 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
+
+var albumHTTPClient = &http.Client{Timeout: 5 * time.Second}
 
 func GetAlbumResp(storefront string, id string, language string, token string) (*AlbumResp, error) {
 	var err error
@@ -35,7 +38,7 @@ func GetAlbumResp(storefront string, id string, language string, token string) (
 	query.Set("extend", "editorialVideo,extendedAssetUrls,editorialNotes")
 	query.Set("l", language)
 	req.URL.RawQuery = query.Encode()
-	do, err := http.DefaultClient.Do(req)
+	do, err := albumHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +51,7 @@ func GetAlbumResp(storefront string, id string, language string, token string) (
 	if err != nil {
 		return nil, err
 	}
+	populateRecordLabel(obj, token, language)
 	if len(obj.Data[0].Relationships.Tracks.Next) > 0 {
 		next := obj.Data[0].Relationships.Tracks.Next
 		for {
@@ -63,7 +67,7 @@ func GetAlbumResp(storefront string, id string, language string, token string) (
 			query.Set("include", "artists")
 			query.Set("extend", "editorialVideo,extendedAssetUrls")
 			req.URL.RawQuery = query.Encode()
-			do, err := http.DefaultClient.Do(req)
+			do, err := albumHTTPClient.Do(req)
 			if err != nil {
 				return nil, err
 			}
@@ -116,7 +120,7 @@ func GetAlbumRespByHref(href string, language string, token string) (*AlbumResp,
 	query.Set("extend", "editorialVideo,extendedAssetUrls,editorialNotes")
 	query.Set("l", language)
 	req.URL.RawQuery = query.Encode()
-	do, err := http.DefaultClient.Do(req)
+	do, err := albumHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -129,6 +133,7 @@ func GetAlbumRespByHref(href string, language string, token string) (*AlbumResp,
 	if err != nil {
 		return nil, err
 	}
+	populateRecordLabel(obj, token, language)
 	if len(obj.Data[0].Relationships.Tracks.Next) > 0 {
 		next := obj.Data[0].Relationships.Tracks.Next
 		for {
@@ -144,7 +149,7 @@ func GetAlbumRespByHref(href string, language string, token string) (*AlbumResp,
 			query.Set("include", "artists")
 			query.Set("extend", "editorialVideo,extendedAssetUrls")
 			req.URL.RawQuery = query.Encode()
-			do, err := http.DefaultClient.Do(req)
+			do, err := albumHTTPClient.Do(req)
 			if err != nil {
 				return nil, err
 			}
@@ -234,8 +239,12 @@ type AlbumRespData struct {
 	} `json:"attributes"`
 	Relationships struct {
 		RecordLabels struct {
-			Href string        `json:"href"`
-			Data []interface{} `json:"data"`
+			Href string `json:"href"`
+			Data []struct {
+				Attributes struct {
+					Name string `json:"name"`
+				} `json:"attributes"`
+			} `json:"data"`
 		} `json:"record-labels"`
 		Artists struct {
 			Href string `json:"href"`
@@ -253,4 +262,67 @@ type AlbumRespData struct {
 		} `json:"artists"`
 		Tracks TrackResp `json:"tracks"`
 	} `json:"relationships"`
+}
+
+// Label returns the record-label relationship when available. Apple Music's
+// recordLabel attribute can contain an artist imprint instead of the
+// distributor shown in store metadata.
+func (a AlbumRespData) Label() string {
+	if len(a.Relationships.RecordLabels.Data) > 0 {
+		for _, label := range a.Relationships.RecordLabels.Data {
+			if name := label.Attributes.Name; name != "" {
+				return name
+			}
+		}
+	}
+	return a.Attributes.RecordLabel
+}
+
+func populateRecordLabel(resp *AlbumResp, token string, language string) {
+	if len(resp.Data) == 0 || resp.Data[0].Relationships.RecordLabels.Href == "" ||
+		len(resp.Data[0].Relationships.RecordLabels.Data) > 0 &&
+			resp.Data[0].Relationships.RecordLabels.Data[0].Attributes.Name != "" {
+		return
+	}
+
+	href := resp.Data[0].Relationships.RecordLabels.Href
+	labelURL := href
+	if !strings.HasPrefix(labelURL, "http://") && !strings.HasPrefix(labelURL, "https://") {
+		labelURL = "https://amp-api.music.apple.com" + labelURL
+	}
+	req, err := http.NewRequest("GET", labelURL, nil)
+	if err != nil {
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+	req.Header.Set("Origin", "https://music.apple.com")
+	query := req.URL.Query()
+	if language != "" {
+		query.Set("l", language)
+	}
+	req.URL.RawQuery = query.Encode()
+
+	do, err := albumHTTPClient.Do(req)
+	if err != nil {
+		return
+	}
+	defer do.Body.Close()
+	if do.StatusCode != http.StatusOK {
+		return
+	}
+
+	var labels struct {
+		Data []struct {
+			Attributes struct {
+				Name string `json:"name"`
+			} `json:"attributes"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(do.Body).Decode(&labels); err != nil {
+		return
+	}
+	if len(labels.Data) > 0 {
+		resp.Data[0].Relationships.RecordLabels.Data = labels.Data
+	}
 }

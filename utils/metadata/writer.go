@@ -3,8 +3,6 @@ package metadata
 import (
 	"errors"
 	"io"
-	"github.com/utopian-society/apple-music-downloader/utils/ampapi"
-	"github.com/utopian-society/apple-music-downloader/utils/structs"
 	"math"
 	"net/http"
 	"os"
@@ -14,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/utopian-society/apple-music-downloader/utils/ampapi"
+	"github.com/utopian-society/apple-music-downloader/utils/structs"
 	"github.com/utopian-society/go-mp4tag"
 )
 
@@ -265,13 +265,14 @@ func WriteLyrics(sanAlbumFolder, filename string, lrc string) error {
 // WriteMP4Tags writes metadata tags to an MP4 file
 func WriteMP4Tags(trackPath, lrc string, meta *ampapi.AlbumResp, trackNum, trackTotal int, config structs.ConfigSet) error {
 	index := trackNum - 1
+	label := meta.Data[0].Label()
 
 	// Build custom tags map
 	customTags := map[string]string{
 		"PERFORMER":   meta.Data[0].Relationships.Tracks.Data[index].Attributes.ArtistName,
 		"RELEASETIME": meta.Data[0].Relationships.Tracks.Data[index].Attributes.ReleaseDate,
 		"ISRC":        meta.Data[0].Relationships.Tracks.Data[index].Attributes.Isrc,
-		"LABEL":       meta.Data[0].Attributes.RecordLabel,
+		"LABEL":       label,
 		"UPC":         meta.Data[0].Attributes.Upc,
 	}
 
@@ -302,8 +303,9 @@ func WriteMP4Tags(trackPath, lrc string, meta *ampapi.AlbumResp, trackNum, track
 
 	customTags["PURCHASEDATE"] = time.Now().Format("2006-01-02 15:04:05")
 
-	if meta.Data[0].Attributes.RecordLabel != "" && meta.Data[0].Relationships.Tracks.Data[index].Attributes.Isrc != "" {
-		customTags["VENDOR"] = meta.Data[0].Attributes.RecordLabel + ":isrc:" + meta.Data[0].Relationships.Tracks.Data[index].Attributes.Isrc
+	if vendorLabel := meta.Data[0].Label(); vendorLabel != "" &&
+		meta.Data[0].Relationships.Tracks.Data[index].Attributes.Isrc != "" {
+		customTags["VENDOR"] = vendorLabel + ":isrc:" + meta.Data[0].Relationships.Tracks.Data[index].Attributes.Isrc
 	}
 
 	t := &mp4tag.MP4Tags{
@@ -314,7 +316,7 @@ func WriteMP4Tags(trackPath, lrc string, meta *ampapi.AlbumResp, trackNum, track
 		Date:        meta.Data[0].Attributes.ReleaseDate,
 		CustomGenre: meta.Data[0].Relationships.Tracks.Data[index].Attributes.GenreNames[0],
 		Copyright:   meta.Data[0].Attributes.Copyright,
-		Publisher:   meta.Data[0].Attributes.RecordLabel,
+		Publisher:   label,
 		Lyrics:      lrc,
 	}
 
