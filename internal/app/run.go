@@ -39,6 +39,8 @@ func Main() {
 	pflag.String("aac-type", "", "Select AAC type, aac aac-binaural aac-downmix")
 	pflag.String("mv-audio-type", "", "Select MV audio type, atmos ac3 aac")
 	pflag.Int("mv-max", 0, "Specify the max quality for download MV")
+	pflag.Bool("mv-embed-subtitles", false, "Embed subtitle track into MV MP4 (requires ffmpeg)")
+	pflag.Bool("mv-save-subtitle-file", false, "Save MV subtitle as a sidecar .srt file")
 	pflag.BoolVarP(&r.Flags.Version, "version", "v", false, "Print version information and exit")
 	pflag.BoolVarP(&r.Flags.Update, "update", "U", false, "Perform self-update and interactive config migration")
 	pflag.BoolVar(&r.Flags.CheckUpdate, "check-update", false, "Check for available updates without downloading")

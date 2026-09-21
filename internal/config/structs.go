@@ -36,8 +36,10 @@ type MediaConfig struct {
 
 // MVConfig holds music video audio format and quality constraints.
 type MVConfig struct {
-	AudioType string `koanf:"audio-type"`
-	Max       int    `koanf:"max"`
+	AudioType        string `koanf:"audio-type"`
+	Max              int    `koanf:"max"`
+	EmbedSubtitles   bool   `koanf:"embed-subtitles"`
+	SaveSubtitleFile bool   `koanf:"save-subtitle-file"`
 }
 
 // PathsConfig holds destination folder paths and naming templates for downloaded content.

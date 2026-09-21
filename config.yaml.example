@@ -26,6 +26,8 @@ media:
   mv:
     audio-type: "atmos"                   # Audio codec selection for MV: "atmos", "ac3", or "aac"
     max: 2160                             # Maximum video resolution for MV (e.g. 2160, 1080, 720)
+    embed-subtitles: true                 # Embed subtitle track into MV MP4 (requires ffmpeg)
+    save-subtitle-file: false             # Save MV subtitle as a sidecar .srt file
 
 # ------------------------------------------------------------------------------
 # 3. Storage Paths & Templates (Save Folders & Naming Templates)

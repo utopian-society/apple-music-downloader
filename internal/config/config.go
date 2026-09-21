@@ -52,12 +52,14 @@ func getExampleContent(explicitFile string) string {
 
 // flagKeyMap maps flat command line flag names to nested configuration keys.
 var flagKeyMap = map[string]string{
-	"alac-max":      "media.alac-max",
-	"atmos-max":     "media.atmos-max",
-	"aac-type":      "media.aac-type",
-	"mv-audio-type": "media.mv.audio-type",
-	"mv-max":        "media.mv.max",
-	"lite-server":   "general.lite-server",
+	"alac-max":              "media.alac-max",
+	"atmos-max":             "media.atmos-max",
+	"aac-type":              "media.aac-type",
+	"mv-audio-type":         "media.mv.audio-type",
+	"mv-max":                "media.mv.max",
+	"mv-embed-subtitles":    "media.mv.embed-subtitles",
+	"mv-save-subtitle-file": "media.mv.save-subtitle-file",
+	"lite-server":           "general.lite-server",
 }
 
 // LoadOptions controls the configuration loading behavior.
