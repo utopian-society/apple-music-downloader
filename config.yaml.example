@@ -59,6 +59,8 @@ use-songinfo-for-playlist: false
 dl-albumcover-for-playlist: false
 mv-audio-type: atmos  #atmos ac3 aac
 mv-max: 2160
+mv-embed-subtitles: true    # Embed subtitle track into MV MP4 (requires ffmpeg)
+mv-save-subtitle-file: false # Save MV subtitle as a sidecar .srt file
 
 # storefront will be used only in searching. 
 # storefront is the 2-letter country code that are available in the urls (jp, ca, us etc.).

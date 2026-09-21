@@ -127,6 +127,67 @@ func (r *Runner) mvDownloader(adamID string, saveDir string, token string, store
 	}
 	fmt.Printf("\rMV Remuxed.   \n")
 
+	// Subtitle handling: extract, download (WebVTT → SRT) or extract in-stream CC, optionally save/embed.
+	var srtPathToEmbed string
+	var srtLangToEmbed string
+	if r.Config.MVEmbedSubtitles || r.Config.MVSaveSubtitleFile {
+		var subs []ExtractedSubtitle
+		baseMVName := forbiddenNames.ReplaceAllString(mvSaveName, "_")
+
+		// 1. Check for external subtitle tracks in master HLS playlist (WebVTT).
+		hlsSubs, err := r.extractMvSubtitles(mvm3u8url)
+		if err == nil && len(hlsSubs) > 0 {
+			for _, sub := range hlsSubs {
+				srtName := fmt.Sprintf("%s_%s.srt", baseMVName, sub.Lang)
+				srtPath := filepath.Join(saveDir, srtName)
+				if err := downloadWebVTTtoSRT(sub.URL, srtPath); err != nil {
+					fmt.Printf("⚠ Failed to download subtitle (%s): %v\n", sub.Lang, err)
+					continue
+				}
+				subs = append(subs, ExtractedSubtitle{Lang: sub.Lang, Path: srtPath})
+			}
+		}
+
+		// 2. If no playlist subtitles found, extract in-stream closed captions (EIA-608 / CEA-708) from video.
+		if len(subs) == 0 {
+			videoSource := mvOutPath
+			if exists, _ := fileExists(videoSource); !exists {
+				videoSource = vidPath
+			}
+			ccSubs, err := ExtractSubtitlesFromVideo(videoSource, saveDir, baseMVName)
+			if err != nil {
+				fmt.Printf("⚠ Failed to extract closed captions: %v\n", err)
+			} else {
+				subs = append(subs, ccSubs...)
+			}
+		}
+
+		if len(subs) == 0 {
+			fmt.Println("No subtitle tracks found in MV.")
+		} else {
+			for _, sub := range subs {
+				fmt.Printf("Subtitle (%s): %s\n", sub.Lang, filepath.Base(sub.Path))
+				if r.Config.MVEmbedSubtitles && srtPathToEmbed == "" {
+					srtPathToEmbed = sub.Path
+					srtLangToEmbed = sub.Lang
+				}
+				if !r.Config.MVSaveSubtitleFile {
+					defer os.Remove(sub.Path)
+				}
+			}
+		}
+	}
+
+	// Embed the subtitle track into the final MP4 before writing tags.
+	if srtPathToEmbed != "" {
+		fmt.Printf("Embedding subtitles...")
+		if _, err := EmbedSubtitlesInMV(mvOutPath, srtPathToEmbed, srtLangToEmbed); err != nil {
+			fmt.Printf("\r⚠ Subtitle embed failed: %v\n", err)
+		} else {
+			fmt.Printf("\rSubtitles embedded.   \n")
+		}
+	}
+
 	if err := r.writeMVMP4Tags(mvOutPath, MVInfo, track, covPath); err != nil {
 		_ = os.Remove(mvOutPath)
 		fmt.Printf("MV tag writing failed: %v\n", err)
@@ -191,6 +252,7 @@ func (r *Runner) writeMVMP4Tags(path string, mvInfo *ampapi.MusicVideoResp, trac
 		tags.AlbumArtist = track.AlbumData.Attributes.ArtistName
 		tags.Custom["PERFORMER"] = track.Resp.Attributes.ArtistName
 		tags.Custom["UPC"] = track.AlbumData.Attributes.Upc
+		tags.Custom["LABEL"] = track.AlbumData.Attributes.RecordLabel
 		tags.Copyright = track.AlbumData.Attributes.Copyright
 		tags.Publisher = track.AlbumData.Attributes.RecordLabel
 	}
@@ -233,12 +295,16 @@ func (r *Runner) writeMVMP4Tags(path string, mvInfo *ampapi.MusicVideoResp, trac
 // EmbedSubtitlesInMV embeds SRT subtitles into an MP4 music video using ffmpeg.
 // Applies -itsoffset 0.250 to shift subtitle timing by 250ms.
 // Returns the path to the output file (overwrites input on success).
-func EmbedSubtitlesInMV(videoPath, subtitlePath string) (string, error) {
+func EmbedSubtitlesInMV(videoPath, subtitlePath, language string) (string, error) {
 	if _, err := os.Stat(videoPath); err != nil {
 		return "", fmt.Errorf("video file not found: %w", err)
 	}
 	if _, err := os.Stat(subtitlePath); err != nil {
 		return "", fmt.Errorf("subtitle file not found: %w", err)
+	}
+
+	if language == "" {
+		language = "eng"
 	}
 
 	// Create temp file in same directory (for atomic rename on success).
@@ -257,12 +323,12 @@ func EmbedSubtitlesInMV(videoPath, subtitlePath string) (string, error) {
 		"-itsoffset", "0.250",
 		"-i", videoPath,
 		"-i", subtitlePath,
-		"-map", "0:v",     // video stream
-		"-map", "0:a",     // audio stream
-		"-map", "1:s",     // subtitle stream (from .srt)
-		"-c", "copy",      // copy video/audio streams unchanged
+		"-map", "0:v", // video stream
+		"-map", "0:a", // audio stream
+		"-map", "1:s", // subtitle stream (from .srt)
+		"-c", "copy", // copy video/audio streams unchanged
 		"-c:s", "mov_text", // subtitle codec (tx3g in MP4)
-		"-metadata:s:s:0", "language=eng",
+		"-metadata:s:s:0", "language="+language,
 		tmpPath,
 	)
 

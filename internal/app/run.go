@@ -65,6 +65,8 @@ func Main() {
 	aac_type = pflag.String("aac-type", r.Config.AacType, "Select AAC type, aac aac-binaural aac-downmix")
 	mv_audio_type = pflag.String("mv-audio-type", r.Config.MVAudioType, "Select MV audio type, atmos ac3 aac")
 	mv_max = pflag.Int("mv-max", r.Config.MVMax, "Specify the max quality for download MV")
+	pflag.BoolVar(&r.Config.MVEmbedSubtitles, "mv-embed-subtitles", r.Config.MVEmbedSubtitles, "Embed subtitle track into MV MP4 (requires ffmpeg)")
+	pflag.BoolVar(&r.Config.MVSaveSubtitleFile, "mv-save-subtitle-file", r.Config.MVSaveSubtitleFile, "Save MV subtitle as a sidecar .srt file")
 
 	pflag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] [url1 url2 ...]\n", "[main | main.exe | go run main.go]")

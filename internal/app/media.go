@@ -223,6 +223,7 @@ func (r *Runner) writeMP4Tags(track *model.Track, lrc string) error {
 		t.TrackTotal = int16(track.AlbumData.Attributes.TrackCount)
 		t.AlbumArtist = track.AlbumData.Attributes.ArtistName
 		t.Custom["UPC"] = track.AlbumData.Attributes.Upc
+		t.Custom["LABEL"] = track.AlbumData.Attributes.RecordLabel
 		t.Date = track.AlbumData.Attributes.ReleaseDate
 		t.Copyright = track.AlbumData.Attributes.Copyright
 		t.Publisher = track.AlbumData.Attributes.RecordLabel
@@ -323,6 +324,201 @@ func (r *Runner) extractMvAudio(c string) (string, error) {
 	})
 	fmt.Println("Audio: " + streams[0].groupID)
 	return streams[0].url, nil
+}
+
+// extractMvSubtitles scans the MV master playlist and returns a slice of
+// (language, absolute URL) pairs for every TYPE=SUBTITLES alternative.
+func (r *Runner) extractMvSubtitles(masterURL string) ([]struct{ Lang, URL string }, error) {
+	baseURL, err := url.Parse(masterURL)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := download.Get(masterURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New(resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	from, listType, err := m3u8.DecodeFrom(strings.NewReader(string(body)), true)
+	if err != nil || listType != m3u8.MASTER {
+		return nil, errors.New("m3u8 not of master type")
+	}
+
+	master := from.(*m3u8.MasterPlaylist)
+	var results []struct{ Lang, URL string }
+	seen := map[string]bool{}
+
+	for _, variant := range master.Variants {
+		for _, alt := range variant.Alternatives {
+			if alt.Type != "SUBTITLES" || alt.URI == "" {
+				continue
+			}
+			lang := alt.Language
+			if lang == "" {
+				lang = alt.Name
+			}
+			if seen[lang] {
+				continue
+			}
+			seen[lang] = true
+			absURL, err := baseURL.Parse(alt.URI)
+			if err != nil {
+				continue
+			}
+			results = append(results, struct{ Lang, URL string }{lang, absURL.String()})
+		}
+	}
+	return results, nil
+}
+
+// downloadWebVTTtoSRT fetches a WebVTT media-playlist URL, concatenates all
+// cue segments, and writes a well-formed SRT file to destPath.
+func downloadWebVTTtoSRT(playlistURL, destPath string) error {
+	baseURL, err := url.Parse(playlistURL)
+	if err != nil {
+		return err
+	}
+
+	resp, err := download.Get(playlistURL)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	text := string(body)
+
+	// If the playlist is itself a WebVTT file (inline cues), convert directly.
+	if strings.HasPrefix(strings.TrimSpace(text), "WEBVTT") {
+		srt := webvttToSRT(text)
+		return os.WriteFile(destPath, []byte(srt), 0644)
+	}
+
+	// It may be an HLS media-playlist listing .vtt segment URIs.
+	from, listType, err := m3u8.DecodeFrom(strings.NewReader(text), true)
+	if err != nil || listType != m3u8.MEDIA {
+		// Fallback: treat as raw WebVTT.
+		srt := webvttToSRT(text)
+		return os.WriteFile(destPath, []byte(srt), 0644)
+	}
+
+	media := from.(*m3u8.MediaPlaylist)
+	var combined strings.Builder
+	for _, seg := range media.Segments {
+		if seg == nil {
+			continue
+		}
+		segURL, err := baseURL.Parse(seg.URI)
+		if err != nil {
+			continue
+		}
+		sr, err := download.Get(segURL.String())
+		if err != nil {
+			continue
+		}
+		segBody, err := io.ReadAll(sr.Body)
+		sr.Body.Close()
+		if err != nil {
+			continue
+		}
+		combined.WriteString(string(segBody))
+		combined.WriteString("\n")
+	}
+
+	srt := webvttToSRT(combined.String())
+	return os.WriteFile(destPath, []byte(srt), 0644)
+}
+
+// webvttToSRT converts a WebVTT string into SRT format.
+// It strips the WEBVTT header, converts timestamps (. → ,), and removes
+// cue identifiers, positioning attributes, and HTML-like styling tags.
+func webvttToSRT(webvtt string) string {
+	// Normalise line endings.
+	webvtt = strings.ReplaceAll(webvtt, "\r\n", "\n")
+	webvtt = strings.ReplaceAll(webvtt, "\r", "\n")
+
+	lines := strings.Split(webvtt, "\n")
+	var srtLines []string
+	cueIndex := 1
+
+	tagRe := regexp.MustCompile(`<[^>]+>`)
+	tsRe := regexp.MustCompile(`(\d{2}:\d{2}:\d{2}\.\d{3})\s+-->\s+(\d{2}:\d{2}:\d{2}\.\d{3}).*`)
+
+	i := 0
+	for i < len(lines) {
+		line := strings.TrimSpace(lines[i])
+
+		// Skip WEBVTT header and NOTE/REGION/STYLE blocks.
+		if strings.HasPrefix(line, "WEBVTT") || strings.HasPrefix(line, "NOTE") ||
+			strings.HasPrefix(line, "REGION") || strings.HasPrefix(line, "STYLE") {
+			for i < len(lines) && strings.TrimSpace(lines[i]) != "" {
+				i++
+			}
+			i++
+			continue
+		}
+
+		// Check if this line (or next) is a timestamp line.
+		candidate := line
+		if !tsRe.MatchString(candidate) {
+			// Might be a cue identifier — peek at next line.
+			if i+1 < len(lines) && tsRe.MatchString(strings.TrimSpace(lines[i+1])) {
+				i++ // skip cue ID
+				candidate = strings.TrimSpace(lines[i])
+			} else {
+				i++
+				continue
+			}
+		}
+
+		m := tsRe.FindStringSubmatch(candidate)
+		if len(m) < 3 {
+			i++
+			continue
+		}
+		startTS := strings.ReplaceAll(m[1], ".", ",")
+		endTS := strings.ReplaceAll(m[2], ".", ",")
+		i++
+
+		// Collect payload lines until blank line.
+		var payload []string
+		for i < len(lines) && strings.TrimSpace(lines[i]) != "" {
+			pl := tagRe.ReplaceAllString(lines[i], "")
+			pl = strings.TrimSpace(pl)
+			if pl != "" {
+				payload = append(payload, pl)
+			}
+			i++
+		}
+		i++ // skip blank separator
+
+		if len(payload) == 0 {
+			continue
+		}
+
+		srtLines = append(srtLines,
+			fmt.Sprintf("%d", cueIndex),
+			fmt.Sprintf("%s --> %s", startTS, endTS),
+		)
+		srtLines = append(srtLines, payload...)
+		srtLines = append(srtLines, "")
+		cueIndex++
+	}
+
+	return strings.Join(srtLines, "\n")
 }
 
 // audioScore rates an audio group ID by quality. Higher is better; -1 means
