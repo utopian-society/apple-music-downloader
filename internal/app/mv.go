@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -227,4 +228,54 @@ func (r *Runner) writeMVMP4Tags(path string, mvInfo *ampapi.MusicVideoResp, trac
 	}
 	defer mp4.Close()
 	return mp4.Write(tags, []string{})
+}
+
+// EmbedSubtitlesInMV embeds SRT subtitles into an MP4 music video using ffmpeg.
+// Applies -itsoffset 0.250 to shift subtitle timing by 250ms.
+// Returns the path to the output file (overwrites input on success).
+func EmbedSubtitlesInMV(videoPath, subtitlePath string) (string, error) {
+	if _, err := os.Stat(videoPath); err != nil {
+		return "", fmt.Errorf("video file not found: %w", err)
+	}
+	if _, err := os.Stat(subtitlePath); err != nil {
+		return "", fmt.Errorf("subtitle file not found: %w", err)
+	}
+
+	// Create temp file in same directory (for atomic rename on success).
+	dir := filepath.Dir(videoPath)
+	tmpFile, err := os.CreateTemp(dir, "*.mp4")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	tmpFile.Close()
+
+	// ffmpeg: embed subtitles with -itsoffset for timing, -c copy for zero re-encode.
+	cmd := exec.Command(
+		"ffmpeg",
+		"-y",
+		"-itsoffset", "0.250",
+		"-i", videoPath,
+		"-i", subtitlePath,
+		"-map", "0:v",     // video stream
+		"-map", "0:a",     // audio stream
+		"-map", "1:s",     // subtitle stream (from .srt)
+		"-c", "copy",      // copy video/audio streams unchanged
+		"-c:s", "mov_text", // subtitle codec (tx3g in MP4)
+		"-metadata:s:s:0", "language=eng",
+		tmpPath,
+	)
+
+	if err := cmd.Run(); err != nil {
+		os.Remove(tmpPath)
+		return "", fmt.Errorf("ffmpeg subtitle embedding failed: %w", err)
+	}
+
+	// Atomic rename: replace original with temp on success.
+	if err := os.Rename(tmpPath, videoPath); err != nil {
+		os.Remove(tmpPath)
+		return "", fmt.Errorf("failed to replace original file: %w", err)
+	}
+
+	return videoPath, nil
 }
