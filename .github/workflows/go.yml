@@ -1,12 +1,30 @@
 name: Go
+
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  release:
+    types: [ published ]
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.0'
+          cache: true
+      - name: Run tests
+        run: go test -v ./...
+      - name: Vet code
+        run: go vet ./...
+
   build-windows:
+    needs: test
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,22 +35,26 @@ jobs:
           cache: true
       - name: Build
         run: |
-          go build -o apple-music-downloader.exe -v .
+          go build -o apple-music-downloader.exe -ldflags="-s -w" -v .
       - name: Create distribution
+        shell: pwsh
         run: |
-          mkdir -p alac
-          copy agent.js alac\
-          copy agent-arm64.js alac\
-          copy config.yaml.example alac\config.yaml
-          copy README.md alac\
-          copy apple-music-downloader.exe alac\
+          New-Item -ItemType Directory -Force -Path alac | Out-Null
+          Copy-Item agent.js alac/
+          Copy-Item agent-arm64.js alac/
+          Copy-Item config.yaml.example alac/config.yaml.example
+          Copy-Item README.md alac/
+          Copy-Item apple-music-downloader.exe alac/
+          Copy-Item LICENSE alac/ -ErrorAction SilentlyContinue
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: apple-music-alac-atmos-downloader-windows
           path: alac
+          retention-days: 30
 
   build-linux:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,23 +65,26 @@ jobs:
           cache: true
       - name: Build
         run: |
-          go build -o apple-music-downloader -v .
+          go build -o apple-music-downloader -ldflags="-s -w" -v .
       - name: Create distribution
         run: |
           mkdir -p alac
           cp agent.js alac/
           cp agent-arm64.js alac/
-          cp config.yaml.example alac/config.yaml
+          cp config.yaml.example alac/
           cp README.md alac/
           cp apple-music-downloader alac/
+          [ -f LICENSE ] && cp LICENSE alac/ || true
           chmod +x alac/apple-music-downloader
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: apple-music-alac-atmos-downloader-linux
           path: alac
+          retention-days: 30
 
   build-macos:
+    needs: test
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -70,18 +95,44 @@ jobs:
           cache: true
       - name: Build
         run: |
-          go build -o apple-music-downloader -v .
+          go build -o apple-music-downloader -ldflags="-s -w" -v .
       - name: Create distribution
         run: |
           mkdir -p alac
           cp agent.js alac/
           cp agent-arm64.js alac/
-          cp config.yaml.example alac/config.yaml
+          cp config.yaml.example alac/
           cp README.md alac/
           cp apple-music-downloader alac/
+          [ -f LICENSE ] && cp LICENSE alac/ || true
           chmod +x alac/apple-music-downloader
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: apple-music-alac-atmos-downloader-macos
           path: alac
+          retention-days: 30
+
+  release:
+    needs: [ build-windows, build-linux, build-macos ]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create release archives
+        run: |
+          cd artifacts
+          for dir in */; do
+            dir_name="${dir%/}"
+            zip -r "../${dir_name}.zip" "$dir"
+          done
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: "*.zip"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
