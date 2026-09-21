@@ -5,23 +5,26 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/utopian-society/apple-music-downloader/utils/alacfix"
+	"amdl/internal/media/alacfix"
 )
 
 func main() {
-	var inPlace, force bool
+	var inPlace, force, verbose bool
 	flag.BoolVar(&inPlace, "i", false, "modify file in place")
 	flag.BoolVar(&inPlace, "in-place", false, "modify file in place")
 	flag.BoolVar(&force, "f", false, "always write output even if no patches applied")
 	flag.BoolVar(&force, "force", false, "always write output even if no patches applied")
+	flag.BoolVar(&verbose, "v", false, "verbose output")
+	flag.BoolVar(&verbose, "verbose", false, "verbose output")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage:")
-		fmt.Fprintln(os.Stderr, "  alacfix [-f] <input.m4a> <output.m4a>")
-		fmt.Fprintln(os.Stderr, "  alacfix [-f] -i <input.m4a>")
+		fmt.Fprintln(os.Stderr, "  alacfix [-f] [-v] <input.m4a> <output.m4a>")
+		fmt.Fprintln(os.Stderr, "  alacfix [-f] [-v] -i <input.m4a>")
 		fmt.Fprintln(os.Stderr, "")
 		fmt.Fprintln(os.Stderr, "Flags:")
 		fmt.Fprintln(os.Stderr, "  -i, --in-place   modify file in place")
 		fmt.Fprintln(os.Stderr, "  -f, --force      always write output even if no patches applied")
+		fmt.Fprintln(os.Stderr, "  -v, --verbose    verbose output")
 	}
 	flag.Parse()
 
@@ -38,7 +41,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := alacfix.Run(input, force, output); err != nil {
+	var err error
+	if verbose {
+		err = alacfix.RunVerbose(input, force, output)
+	} else {
+		err = alacfix.Run(input, force, output)
+	}
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}

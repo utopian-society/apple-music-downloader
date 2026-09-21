@@ -1,15 +1,14 @@
-ARG GOVERSION=1.25.0
-ARG BUILDPLATFORM
+ARG GOVERSION=1.25.5
+
 FROM --platform=$BUILDPLATFORM golang:${GOVERSION}-alpine AS builder
 ARG TARGETOS
 ARG TARGETARCH
 WORKDIR /app
 RUN --mount=type=cache,target=/go/pkg/mod/ \
     --mount=type=bind,target=. \
-    go mod download && \
-    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o /bin/apple-music-dl .
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o /bin/apple-music-dl main.go
 
-FROM ubuntu:24.04
+FROM gpac/ubuntu
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ffmpeg && \
