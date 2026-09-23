@@ -41,17 +41,20 @@ func (r *Runner) writeCover(sanAlbumFolder, name string, url string) (string, er
 		url = strings.Replace(url, "is1-ssl.mzstatic.com/image/thumb", "a5.mzstatic.com/us/r1000/0", 1)
 		url = url[:strings.LastIndex(url, "/")]
 	}
+	cleanStaleTempFiles(sanAlbumFolder, name+".tmp-*")
 
 	tmpFile, err := os.CreateTemp(sanAlbumFolder, name+".tmp-*")
 	if err != nil {
 		return "", err
 	}
 	tmpPath := tmpFile.Name()
+	registerTempFile(tmpPath)
 	cleanup := true
 	defer func() {
+		unregisterTempFile(tmpPath)
 		if cleanup {
-			tmpFile.Close()
-			os.Remove(tmpPath)
+			_ = tmpFile.Close()
+			_ = removeWithRetry(tmpPath)
 		}
 	}()
 
@@ -75,6 +78,7 @@ func (r *Runner) writeCover(sanAlbumFolder, name string, url string) (string, er
 		return "", err
 	}
 	cleanup = false
+	cleanStaleTempFiles(sanAlbumFolder, name+".tmp-*")
 	return covPath, nil
 }
 

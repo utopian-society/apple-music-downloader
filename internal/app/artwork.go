@@ -69,6 +69,7 @@ func (r *Runner) prepareCollectionFolder(base string, displayName string) (strin
 	if err := createDirectory(folderPath); err != nil {
 		return "", err
 	}
+	cleanStaleTempFiles(folderPath, "*.tmp-*")
 	return folderPath, nil
 }
 
