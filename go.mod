@@ -45,5 +45,5 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	golang.org/x/net v0.38.0
 	golang.org/x/sync v0.12.0
-	gopkg.in/yaml.v2 v2.2.8
+	gopkg.in/yaml.v2 v2.4.0
 )
