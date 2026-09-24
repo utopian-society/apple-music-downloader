@@ -1,6 +1,6 @@
 module amdl
 
-go 1.23.1
+go 1.26.0
 
 require (
 	github.com/aead/cmac v0.0.0-20160719120800-7af84192f0b1
@@ -44,6 +44,6 @@ require (
 	github.com/itouakirai/mp4ff v0.0.0-20250930132656-98812935a1c7
 	github.com/olekukonko/tablewriter v0.0.5
 	golang.org/x/net v0.38.0
-	golang.org/x/sync v0.12.0
+	golang.org/x/sync v0.23.0
 	gopkg.in/yaml.v2 v2.2.8
 )
