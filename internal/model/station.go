@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"amdl/internal/amp-api"
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
+	"amdl/internal/amp-api"
 )
 
 type Station struct {

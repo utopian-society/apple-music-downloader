@@ -20,7 +20,7 @@ func makeAtom(typ string, payload []byte) []byte {
 
 func makeTkhd() []byte {
 	payload := make([]byte, 24)
-	payload[0] = 0                                // version
+	payload[0] = 0 // version
 	binary.BigEndian.PutUint32(payload[12:16], 1) // trackID = 1
 	return makeAtom("tkhd", payload)
 }
@@ -67,15 +67,15 @@ func makeStbl(packetOffset int, packetSizes []int) []byte {
 
 	// stsc
 	stscBody := make([]byte, 20)
-	binary.BigEndian.PutUint32(stscBody[4:8], 1)                          // count = 1
-	binary.BigEndian.PutUint32(stscBody[8:12], 1)                         // firstChunk = 1
+	binary.BigEndian.PutUint32(stscBody[4:8], 1)                           // count = 1
+	binary.BigEndian.PutUint32(stscBody[8:12], 1)                          // firstChunk = 1
 	binary.BigEndian.PutUint32(stscBody[12:16], uint32(len(packetSizes))) // samplesPerChunk
-	binary.BigEndian.PutUint32(stscBody[16:20], 1)                        // sampleDescIndex = 1
+	binary.BigEndian.PutUint32(stscBody[16:20], 1)                         // sampleDescIndex = 1
 	stsc := makeAtom("stsc", stscBody)
 
 	// stco
 	stcoBody := make([]byte, 12)
-	binary.BigEndian.PutUint32(stcoBody[4:8], 1)                     // count = 1
+	binary.BigEndian.PutUint32(stcoBody[4:8], 1)                    // count = 1
 	binary.BigEndian.PutUint32(stcoBody[8:12], uint32(packetOffset)) // chunkOff = packetOffset
 	stco := makeAtom("stco", stcoBody)
 
@@ -301,5 +301,37 @@ func TestAlacFix_MultiplePackets(t *testing.T) {
 	expected := "Repaired 2 affected packets"
 	if trimmed != expected {
 		t.Fatalf("expected %q, got %q", expected, trimmed)
+	}
+}
+
+func TestAlacFix_OutputPathLeavesInputUntouched(t *testing.T) {
+	path := buildTestMP4Multi(t, []bool{false, true, false})
+	orig, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(t.TempDir(), "out.m4a")
+
+	res, err := Fix(path, false, out)
+	if err != nil {
+		t.Fatalf("Fix failed: %v", err)
+	}
+	if res.Patched != 2 {
+		t.Fatalf("expected 2 patched, got %d", res.Patched)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(orig, after) {
+		t.Fatal("input file was modified")
+	}
+
+	res, err = Fix(out, false)
+	if err != nil {
+		t.Fatalf("Fix on output failed: %v", err)
+	}
+	if res.Patched != 0 {
+		t.Fatalf("expected repaired output, got %d packets still patched", res.Patched)
 	}
 }

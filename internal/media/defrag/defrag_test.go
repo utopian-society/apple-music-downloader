@@ -67,3 +67,4 @@ func TestMakeTagCompatibleFtypNil(t *testing.T) {
 		t.Fatal("expected error when original ftyp is nil, got nil")
 	}
 }
+
