@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/schollz/progressbar/v3"
 
@@ -46,19 +47,32 @@ func DownloadAndDecryptStream(ctx context.Context, stream EncryptedStream, outpu
 		_ = os.Remove(tempPath)
 	}()
 
-	bar := progressbar.DefaultBytes(-1, "Downloading...")
+	bar := progressbar.NewOptions64(
+		-1,
+		progressbar.OptionSetDescription("Downloading..."),
+		progressbar.OptionSetWriter(os.Stderr),
+		progressbar.OptionShowBytes(true),
+		progressbar.OptionSetWidth(10),
+		progressbar.OptionThrottle(65*time.Millisecond),
+		progressbar.OptionShowCount(),
+		progressbar.OptionSpinnerType(14),
+		progressbar.OptionFullWidth(),
+		progressbar.OptionSetRenderBlankState(true),
+		progressbar.OptionClearOnFinish(),
+	)
 	err = download.DownloadSegments(ctx, download.Client, stream.URLs, tempFile, download.SegmentConfig{
 		Concurrency: streamDownloadConcurrency,
 		MaxRetries:  streamDownloadMaxRetries,
 		Progress:    func(n int) { _ = bar.Add(n) },
 	})
+	_ = bar.Finish()
 	if err != nil {
 		return fmt.Errorf("download stream: %w", err)
 	}
 	if _, err := tempFile.Seek(0, 0); err != nil {
 		return fmt.Errorf("rewind temp file: %w", err)
 	}
-	fmt.Println("\nDownloaded.")
+	fmt.Println("Downloaded.")
 
 	if err := DecryptMP4ToFile(tempFile, stream.Key, outputPath); err != nil {
 		return fmt.Errorf("decrypt stream: %w", err)

@@ -149,12 +149,12 @@ func (r *Runner) mvDownloader(adamID string, saveDir string, token string, store
 		}
 	}
 
-	fmt.Printf("MV Remuxing...")
+	fmt.Println("MV Remuxing...")
 	if err := mvmedia.Mux(vidPath, audPath, mvOutPath); err != nil {
 		fmt.Printf("MV mux failed: %v\n", err)
 		return err
 	}
-	fmt.Printf("\rMV Remuxed.   \n")
+	fmt.Println("MV Remuxed.")
 
 	// Subtitle handling: extract, download (WebVTT / SRT) or extract in-stream CC, optionally save/embed.
 	if r.Config.Media.MV.EmbedSubtitles || r.Config.Media.MV.ExtractSubtitles {
@@ -257,11 +257,11 @@ func (r *Runner) mvDownloader(adamID string, saveDir string, token string, store
 
 		// 3. Embed subtitles if requested and found
 		if r.Config.Media.MV.EmbedSubtitles && len(subsToEmbed) > 0 {
-			fmt.Print("Embedding subtitles...")
+			fmt.Println("Embedding subtitles...")
 			if err := r.EmbedSubtitlesInMV(mvOutPath, subsToEmbed); err != nil {
-				fmt.Printf("\r⚠ Subtitle embed failed: %v\n", err)
+				fmt.Printf("⚠ Subtitle embed failed: %v\n", err)
 			} else {
-				fmt.Print("\rSubtitles embedded.   \n")
+				fmt.Println("Subtitles embedded.")
 			}
 		}
 	}

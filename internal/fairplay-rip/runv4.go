@@ -200,6 +200,7 @@ func downloadAndDecryptFile(liteServer string, in io.Reader, outfile string,
 		progressbar.OptionEnableColorCodes(true),
 		progressbar.OptionShowBytes(true),
 		progressbar.OptionSetDescription("Decrypting..."),
+		progressbar.OptionClearOnFinish(),
 		progressbar.OptionSetTheme(progressbar.Theme{
 			Saucer:        "",
 			SaucerHead:    "",
@@ -365,6 +366,7 @@ func downloadAndDecryptFile(liteServer string, in io.Reader, outfile string,
 		outFile = nil
 		tmpPath = ""
 	}
+	_ = bar.Finish()
 	return nil
 }
 

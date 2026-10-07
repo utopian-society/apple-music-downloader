@@ -102,6 +102,7 @@ func (tm *TempManager) initSignalHandler() {
 			<-sigChan
 			_ = tm.Cleanup()
 			cleanupActiveTempFiles()
+			fmt.Println()
 			os.Exit(130)
 		}()
 	})
@@ -252,6 +253,7 @@ func initTempSignalHandler() {
 		go func() {
 			<-sigChan
 			cleanupActiveTempFiles()
+			fmt.Println()
 			os.Exit(130)
 		}()
 	})
