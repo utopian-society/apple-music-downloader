@@ -56,7 +56,7 @@
 
 ## 快速开始
 
-从 [最新 GitHub Releases](https://github.com/zhaarey/apple-music-downloader/releases/latest) 下载适合你系统和架构的预编译二进制文件：
+从 [最新 GitHub Releases](https://github.com/utopian-society/apple-music-downloader/releases/latest) 下载适合你系统和架构的预编译二进制文件：
 
 | 系统平台 | 硬件架构 | 预编译二进制文件名 |
 |---|---|---|
@@ -76,7 +76,7 @@
 
 ```powershell
 # 下载预编译二进制（以 64 位 Windows 为例）
-Invoke-WebRequest -Uri "https://github.com/zhaarey/apple-music-downloader/releases/latest/download/amdl_windows_amd64.exe" -OutFile "amdl.exe"
+Invoke-WebRequest -Uri "https://github.com/utopian-society/apple-music-downloader/releases/latest/download/amdl_windows_amd64.exe" -OutFile "amdl.exe"
 ```
 
 2. 首次运行 `amdl.exe`，程序将自动在当前目录下生成默认的 `config.yaml`：
@@ -106,10 +106,10 @@ Invoke-WebRequest -Uri "https://github.com/zhaarey/apple-music-downloader/releas
 
 ```bash
 # Apple Silicon 芯片（M 系列）：
-curl -L -o amdl https://github.com/zhaarey/apple-music-downloader/releases/latest/download/amdl_darwin_arm64
+curl -L -o amdl https://github.com/utopian-society/apple-music-downloader/releases/latest/download/amdl_darwin_arm64
 
 # Intel 芯片：
-# curl -L -o amdl https://github.com/zhaarey/apple-music-downloader/releases/latest/download/amdl_darwin_amd64
+# curl -L -o amdl https://github.com/utopian-society/apple-music-downloader/releases/latest/download/amdl_darwin_amd64
 
 # 赋予执行权限
 chmod +x amdl
@@ -147,10 +147,10 @@ chmod +x amdl
 
 ```bash
 # x86_64 / amd64 架构：
-curl -L -o amdl https://github.com/zhaarey/apple-music-downloader/releases/latest/download/amdl_linux_amd64
+curl -L -o amdl https://github.com/utopian-society/apple-music-downloader/releases/latest/download/amdl_linux_amd64
 
 # ARM64 架构：
-# curl -L -o amdl https://github.com/zhaarey/apple-music-downloader/releases/latest/download/amdl_linux_arm64
+# curl -L -o amdl https://github.com/utopian-society/apple-music-downloader/releases/latest/download/amdl_linux_arm64
 
 # 赋予执行权限
 chmod +x amdl
@@ -197,7 +197,7 @@ termux-setup-storage
 3. 下载预编译二进制：
 
 ```bash
-curl -L -o amdl https://github.com/zhaarey/apple-music-downloader/releases/latest/download/amdl_android_arm64
+curl -L -o amdl https://github.com/utopian-society/apple-music-downloader/releases/latest/download/amdl_android_arm64
 chmod +x amdl
 ```
 
@@ -399,7 +399,7 @@ Windows PowerShell：
 
 ### 手动更新二进制
 
-直接前往 [GitHub Releases](https://github.com/zhaarey/apple-music-downloader/releases/latest) 下载对应平台的最新预编译二进制文件，替换原有的 `amdl` 或 `amdl.exe` 即可。
+直接前往 [GitHub Releases](https://github.com/utopian-society/apple-music-downloader/releases/latest) 下载对应平台的最新预编译二进制文件，替换原有的 `amdl` 或 `amdl.exe` 即可。
 
 > 如果是通过源码构建的用户，请参阅 [开发者指南](#开发者指南)。
 
@@ -418,7 +418,7 @@ Windows PowerShell：
 **macOS / Linux**：
 
 ```bash
-git clone https://github.com/zhaarey/apple-music-downloader.git
+git clone https://github.com/utopian-society/apple-music-downloader.git
 cd apple-music-downloader
 cp config.yaml.example config.yaml
 go build -o amdl .
@@ -428,7 +428,7 @@ go build -o amdl .
 **Windows (PowerShell)**：
 
 ```powershell
-git clone https://github.com/zhaarey/apple-music-downloader.git
+git clone https://github.com/utopian-society/apple-music-downloader.git
 cd apple-music-downloader
 copy config.yaml.example config.yaml
 go build -o amdl.exe .
