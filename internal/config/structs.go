@@ -22,6 +22,8 @@ type GeneralConfig struct {
 	LiteServer         string `koanf:"lite-server"`
 	MaxMemoryLimit     int    `koanf:"max-memory-limit"`
 	ExitOnError        bool   `koanf:"exit-on-error"`
+	TempDir            string `koanf:"temp-dir"`
+	KeepTempFiles      bool   `koanf:"keep-temp-files"`
 }
 
 // MediaConfig holds audio quality, m3u8 detection mode, and video settings.
@@ -36,10 +38,11 @@ type MediaConfig struct {
 
 // MVConfig holds music video audio format and quality constraints.
 type MVConfig struct {
-	AudioType        string `koanf:"audio-type"`
-	Max              int    `koanf:"max"`
-	EmbedSubtitles   bool   `koanf:"embed-subtitles"`
-	SaveSubtitleFile bool   `koanf:"save-subtitle-file"`
+	AudioType         string   `koanf:"audio-type"`
+	Max               int      `koanf:"max"`
+	EmbedSubtitles    bool     `koanf:"embed-mv-subtitles"`
+	ExtractSubtitles  bool     `koanf:"extract-mv-subtitles"`
+	SubtitleLanguages []string `koanf:"mv-subtitle-languages"`
 }
 
 // PathsConfig holds destination folder paths and naming templates for downloaded content.

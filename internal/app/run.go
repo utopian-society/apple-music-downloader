@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/pflag"
 
@@ -39,8 +40,13 @@ func Main() {
 	pflag.String("aac-type", "", "Select AAC type, aac aac-binaural aac-downmix")
 	pflag.String("mv-audio-type", "", "Select MV audio type, atmos ac3 aac")
 	pflag.Int("mv-max", 0, "Specify the max quality for download MV")
+	pflag.Bool("keep-temp", false, "Keep temporary files after processing instead of deleting")
+	pflag.Bool("mv-sub-embed", false, "Embed subtitle track into MV MP4 (requires ffmpeg)")
+	pflag.Bool("mv-sub-extract", false, "Extract MV subtitle as sidecar files")
 	pflag.Bool("mv-embed-subtitles", false, "Embed subtitle track into MV MP4 (requires ffmpeg)")
 	pflag.Bool("mv-save-subtitle-file", false, "Save MV subtitle as a sidecar .srt file")
+	_ = pflag.CommandLine.MarkHidden("mv-embed-subtitles")
+	_ = pflag.CommandLine.MarkHidden("mv-save-subtitle-file")
 	pflag.BoolVarP(&r.Flags.Version, "version", "v", false, "Print version information and exit")
 	pflag.BoolVarP(&r.Flags.Update, "update", "U", false, "Perform self-update and interactive config migration")
 	pflag.BoolVar(&r.Flags.CheckUpdate, "check-update", false, "Check for available updates without downloading")
@@ -105,6 +111,16 @@ func Main() {
 		fmt.Printf("load Config failed: %v\n", err)
 		return
 	}
+
+	if r.TempMgr == nil {
+		r.TempMgr, _ = NewTempManager(r.Config.General.TempDir, r.Config.General.KeepTempFiles)
+	} else {
+		r.TempMgr.Configure(r.Config.General.TempDir, r.Config.General.KeepTempFiles)
+	}
+	defer func() {
+		_ = r.TempMgr.Cleanup()
+	}()
+	_, _ = SweepStaleTempRoots(r.Config.General.TempDir, 24*time.Hour)
 
 	updater.PrintStartupUpdateNotice(r.Config.General.Proxy)
 	if r.Flags.LiteServerFlag == "" {
@@ -320,4 +336,3 @@ func progName() string {
 	}
 	return "amdl"
 }
-

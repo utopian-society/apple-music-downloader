@@ -27,7 +27,9 @@
 3. 歌手全部专辑下载。
 4. 大文件流式下载和解密。
 5. 音乐视频下载，使用进程内 mp4ff 解密。
-6. 交互式搜索和曲目选择。
+6. 音乐视频字幕嵌入（`mov_text`）与外挂字幕提取（`.vtt` / `.srt`）。
+7. 临时文件统一管理，自动清理过期文件与 `--keep-temp` 支持。
+8. 交互式搜索和曲目选择。
 
 ## 支持的格式
 
@@ -48,7 +50,7 @@
 运行前必须准备：
 
 1. **wrapper-lite**：[github.com/WorldObservationLog/wrapper/tree/lite](https://github.com/WorldObservationLog/wrapper/tree/lite)。必需的后端解密服务。必须先启动它，并在 `lite-server` 中写入其 HTTP 地址，例如 `http://127.0.0.1:12340`。
-2. **ffmpeg**（可选）：仅在后下载转换、动态封面或依赖 ffmpeg 的功能中需要。见 [ffmpeg.org](https://ffmpeg.org/)。
+2. **ffmpeg**（可选）：在后下载转换、动态封面、以及**音乐视频字幕嵌入与提取**时需要。见 [ffmpeg.org](https://ffmpeg.org/)。
 
 > **提示**：直接使用 Release 预编译二进制文件**不需要安装 Go**。只有自行从源码编译时才需要 Go 1.23.1+（见 [开发者指南](#开发者指南)）。
 

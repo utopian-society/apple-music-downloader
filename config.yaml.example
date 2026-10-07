@@ -11,6 +11,8 @@ general:
   storefront: "us"                        # Storefront country code; used only for search or missing URL storefront
   authorization-token: ""                 # Bearer token for Apple Music API (leave blank to auto-fetch)
   exit-on-error: false                    # Set true to exit on download errors instead of prompting interactively
+  temp-dir: ""                            # Custom temp directory (default: system temp / apple-music-downloader-<random>)
+  keep-temp-files: false                  # Keep temporary files after processing instead of deleting
 
 # ------------------------------------------------------------------------------
 # 2. Media Quality & Stream Settings (Audio & Video)
@@ -26,8 +28,9 @@ media:
   mv:
     audio-type: "atmos"                   # Audio codec selection for MV: "atmos", "ac3", or "aac"
     max: 2160                             # Maximum video resolution for MV (e.g. 2160, 1080, 720)
-    embed-subtitles: true                 # Embed subtitle track into MV MP4 (requires ffmpeg)
-    save-subtitle-file: false             # Save MV subtitle as a sidecar .srt file
+    embed-mv-subtitles: false             # Embed subtitle tracks into MV MP4 (requires ffmpeg)
+    extract-mv-subtitles: false           # Save MV subtitle sidecar files (.vtt and .srt)
+    mv-subtitle-languages: []             # List of subtitle languages to embed/extract (empty = all, e.g. ["en", "ja"])
 
 # ------------------------------------------------------------------------------
 # 3. Storage Paths & Templates (Save Folders & Naming Templates)

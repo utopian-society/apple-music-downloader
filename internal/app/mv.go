@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -35,8 +34,27 @@ func (r *Runner) mvDownloader(adamID string, saveDir string, token string, store
 	}
 	saveDir = strings.TrimSpace(saveDir)
 
-	vidPath := filepath.Join(saveDir, fmt.Sprintf("%s_vid.mp4", adamID))
-	audPath := filepath.Join(saveDir, fmt.Sprintf("%s_aud.mp4", adamID))
+	tempDir := os.TempDir()
+	if r.TempMgr != nil {
+		tempDir = r.TempMgr.RootDir()
+	}
+
+	vidPath := filepath.Join(tempDir, fmt.Sprintf("%s_vid.mp4", adamID))
+	audPath := filepath.Join(tempDir, fmt.Sprintf("%s_aud.mp4", adamID))
+	if r.TempMgr != nil {
+		_, _ = r.TempMgr.NewFilePath(fmt.Sprintf("%s_vid.mp4", adamID))
+		_, _ = r.TempMgr.NewFilePath(fmt.Sprintf("%s_aud.mp4", adamID))
+	}
+	defer func() {
+		if r.TempMgr != nil {
+			_ = r.TempMgr.RemoveFile(vidPath)
+			_ = r.TempMgr.RemoveFile(audPath)
+		} else {
+			_ = os.Remove(vidPath)
+			_ = os.Remove(audPath)
+		}
+	}()
+
 	mvSaveName := fmt.Sprintf("%s (%s)", MVInfo.Data[0].Attributes.Name, adamID)
 	if track != nil {
 		mvSaveName = fmt.Sprintf("%02d. %s", track.TaskNum, MVInfo.Data[0].Attributes.Name)
@@ -95,31 +113,22 @@ func (r *Runner) mvDownloader(adamID string, saveDir string, token string, store
 	if err := widevinerip.DownloadAndDecryptStream(ctx, videoStream, vidPath); err != nil {
 		return fmt.Errorf("write video stream: %w", err)
 	}
-	defer os.Remove(vidPath)
-
-	audiom3u8url, err := r.extractMvAudio(mvm3u8url)
-	if err != nil {
-		return fmt.Errorf("extract audio manifest: %w", err)
-	}
-	audioStream, err := runv5.FetchStream(ctx, adamID, audiom3u8url, r.Config.General.LiteServer)
-	if err != nil {
-		return fmt.Errorf("download audio stream: %w", err)
-	}
-	if err := widevinerip.DownloadAndDecryptStream(ctx, audioStream, audPath); err != nil {
-		return fmt.Errorf("write audio stream: %w", err)
-	}
-	defer os.Remove(audPath)
-
 	var covPath string
 	if r.Config.Metadata.Artwork.Embed {
 		thumbURL := MVInfo.Data[0].Attributes.Artwork.URL
 		baseThumbName := forbiddenNames.ReplaceAllString(mvSaveName, "_") + "_thumbnail"
-		covPath, err = r.writeCover(saveDir, baseThumbName, thumbURL)
+		covPath, err = r.writeCover(tempDir, baseThumbName, thumbURL)
 		if err != nil {
 			fmt.Println("Failed to save MV thumbnail:", err)
 			covPath = ""
 		} else {
-			defer os.Remove(covPath)
+			defer func() {
+				if r.TempMgr != nil {
+					_ = r.TempMgr.RemoveFile(covPath)
+				} else {
+					_ = os.Remove(covPath)
+				}
+			}()
 		}
 	}
 
@@ -130,64 +139,113 @@ func (r *Runner) mvDownloader(adamID string, saveDir string, token string, store
 	}
 	fmt.Printf("\rMV Remuxed.   \n")
 
-	// Subtitle handling: extract, download (WebVTT → SRT) or extract in-stream CC, optionally save/embed.
-	var srtPathToEmbed string
-	var srtLangToEmbed string
-	if r.Config.Media.MV.EmbedSubtitles || r.Config.Media.MV.SaveSubtitleFile {
-		var subs []ExtractedSubtitle
+	// Subtitle handling: extract, download (WebVTT / SRT) or extract in-stream CC, optionally save/embed.
+	if r.Config.Media.MV.EmbedSubtitles || r.Config.Media.MV.ExtractSubtitles {
+		var subsToEmbed []SubtitleTrack
 		baseMVName := forbiddenNames.ReplaceAllString(mvSaveName, "_")
 
 		// 1. Check for external subtitle tracks in master HLS playlist (WebVTT).
 		hlsSubs, err := r.extractMvSubtitles(mvm3u8url)
+		var matchedHLSSubs []SubtitleRendition
 		if err == nil && len(hlsSubs) > 0 {
-			for _, sub := range hlsSubs {
-				srtName := fmt.Sprintf("%s_%s.srt", baseMVName, sub.Lang)
-				srtPath := filepath.Join(saveDir, srtName)
-				if err := downloadWebVTTtoSRT(sub.URL, srtPath); err != nil {
-					fmt.Printf("⚠ Failed to download subtitle (%s): %v\n", sub.Lang, err)
+			matchedHLSSubs = FilterSubtitleRenditions(hlsSubs, r.Config.Media.MV.SubtitleLanguages)
+		}
+
+		if len(matchedHLSSubs) > 0 {
+			for _, sub := range matchedHLSSubs {
+				tempVTTPath := filepath.Join(tempDir, fmt.Sprintf("%s.%s.vtt", baseMVName, sub.Language))
+				if r.TempMgr != nil {
+					_, _ = r.TempMgr.NewFilePath(fmt.Sprintf("%s.%s.vtt", baseMVName, sub.Language))
+				}
+				defer func(p string) {
+					if r.TempMgr != nil {
+						_ = r.TempMgr.RemoveFile(p)
+					} else {
+						_ = os.Remove(p)
+					}
+				}(tempVTTPath)
+
+				if err := downloadWebVTT(sub.URL, tempVTTPath); err != nil {
+					fmt.Printf("⚠ Failed to download subtitle (%s): %v\n", sub.Language, err)
 					continue
 				}
-				subs = append(subs, ExtractedSubtitle{Lang: sub.Lang, Path: srtPath})
+
+				// If extraction enabled, save sidecar files next to MV
+				if r.Config.Media.MV.ExtractSubtitles {
+					sidecarVTT := filepath.Join(saveDir, fmt.Sprintf("%s.%s.vtt", baseMVName, sub.Language))
+					_ = copyFile(tempVTTPath, sidecarVTT)
+
+					sidecarSRT := filepath.Join(saveDir, fmt.Sprintf("%s.%s.srt", baseMVName, sub.Language))
+					if vttData, err := os.ReadFile(tempVTTPath); err == nil {
+						srtData := webvttToSRT(string(vttData))
+						_ = os.WriteFile(sidecarSRT, []byte(srtData), 0644)
+					}
+					fmt.Printf("Extracted subtitle (%s): %s\n", sub.Language, filepath.Base(sidecarVTT))
+				}
+
+				if r.Config.Media.MV.EmbedSubtitles {
+					subsToEmbed = append(subsToEmbed, SubtitleTrack{
+						Path:     tempVTTPath,
+						Language: sub.Language,
+						Title:    sub.Name,
+					})
+				}
 			}
 		}
 
 		// 2. If no playlist subtitles found, extract in-stream closed captions (EIA-608 / CEA-708) from video.
-		if len(subs) == 0 {
-			videoSource := mvOutPath
-			if exists, _ := fileExists(videoSource); !exists {
-				videoSource = vidPath
-			}
-			ccSubs, err := ExtractSubtitlesFromVideo(videoSource, saveDir, baseMVName)
-			if err != nil {
-				fmt.Printf("⚠ Failed to extract closed captions: %v\n", err)
-			} else {
-				subs = append(subs, ccSubs...)
+		if len(subsToEmbed) == 0 && (!r.Config.Media.MV.ExtractSubtitles || len(matchedHLSSubs) == 0) {
+			if isFFmpegAvailable() {
+				videoSource := mvOutPath
+				if exists, _ := fileExists(videoSource); !exists {
+					videoSource = vidPath
+				}
+				ccSubs, err := ExtractSubtitlesFromVideo(videoSource, tempDir, baseMVName)
+				if err != nil {
+					fmt.Printf("⚠ Failed to extract closed captions: %v\n", err)
+				} else if len(ccSubs) > 0 {
+					matchedCC := FilterExtractedSubtitles(ccSubs, r.Config.Media.MV.SubtitleLanguages)
+					for _, cc := range matchedCC {
+						defer func(p string) {
+							if r.TempMgr != nil {
+								_ = r.TempMgr.RemoveFile(p)
+							} else {
+								_ = os.Remove(p)
+							}
+						}(cc.Path)
+						if r.Config.Media.MV.ExtractSubtitles {
+							sidecarSRT := filepath.Join(saveDir, fmt.Sprintf("%s.%s.srt", baseMVName, cc.Lang))
+							_ = copyFile(cc.Path, sidecarSRT)
+							sidecarVTT := filepath.Join(saveDir, fmt.Sprintf("%s.%s.vtt", baseMVName, cc.Lang))
+							if srtData, err := os.ReadFile(cc.Path); err == nil {
+								_ = os.WriteFile(sidecarVTT, []byte(srtToWebVTT(string(srtData))), 0644)
+							}
+							fmt.Printf("Extracted closed caption (%s): %s\n", cc.Lang, filepath.Base(sidecarSRT))
+						}
+						if r.Config.Media.MV.EmbedSubtitles {
+							subsToEmbed = append(subsToEmbed, SubtitleTrack{
+								Path:     cc.Path,
+								Language: cc.Lang,
+								Title:    cc.Lang,
+							})
+						}
+					}
+				}
 			}
 		}
 
-		if len(subs) == 0 {
+		if len(matchedHLSSubs) == 0 && len(subsToEmbed) == 0 {
 			fmt.Println("No subtitle tracks found in MV.")
-		} else {
-			for _, sub := range subs {
-				fmt.Printf("Subtitle (%s): %s\n", sub.Lang, filepath.Base(sub.Path))
-				if r.Config.Media.MV.EmbedSubtitles && srtPathToEmbed == "" {
-					srtPathToEmbed = sub.Path
-					srtLangToEmbed = sub.Lang
-				}
-				if !r.Config.Media.MV.SaveSubtitleFile {
-					defer os.Remove(sub.Path)
-				}
-			}
 		}
-	}
 
-	// Embed the subtitle track into the final MP4 before writing tags.
-	if srtPathToEmbed != "" {
-		fmt.Printf("Embedding subtitles...")
-		if _, err := EmbedSubtitlesInMV(mvOutPath, srtPathToEmbed, srtLangToEmbed); err != nil {
-			fmt.Printf("\r⚠ Subtitle embed failed: %v\n", err)
-		} else {
-			fmt.Printf("\rSubtitles embedded.   \n")
+		// 3. Embed subtitles if requested and found
+		if r.Config.Media.MV.EmbedSubtitles && len(subsToEmbed) > 0 {
+			fmt.Print("Embedding subtitles...")
+			if err := r.EmbedSubtitlesInMV(mvOutPath, subsToEmbed); err != nil {
+				fmt.Printf("\r⚠ Subtitle embed failed: %v\n", err)
+			} else {
+				fmt.Print("\rSubtitles embedded.   \n")
+			}
 		}
 	}
 
@@ -293,58 +351,4 @@ func (r *Runner) writeMVMP4Tags(path string, mvInfo *ampapi.MusicVideoResp, trac
 	}
 	defer mp4.Close()
 	return mp4.Write(tags, []string{})
-}
-
-// EmbedSubtitlesInMV embeds SRT subtitles into an MP4 music video using ffmpeg.
-// Applies -itsoffset 0.250 to shift subtitle timing by 250ms.
-// Returns the path to the output file (overwrites input on success).
-func EmbedSubtitlesInMV(videoPath, subtitlePath, language string) (string, error) {
-	if _, err := os.Stat(videoPath); err != nil {
-		return "", fmt.Errorf("video file not found: %w", err)
-	}
-	if _, err := os.Stat(subtitlePath); err != nil {
-		return "", fmt.Errorf("subtitle file not found: %w", err)
-	}
-
-	if language == "" {
-		language = "eng"
-	}
-
-	// Create temp file in same directory (for atomic rename on success).
-	dir := filepath.Dir(videoPath)
-	tmpFile, err := os.CreateTemp(dir, "*.mp4")
-	if err != nil {
-		return "", fmt.Errorf("failed to create temp file: %w", err)
-	}
-	tmpPath := tmpFile.Name()
-	tmpFile.Close()
-
-	// ffmpeg: embed subtitles with -itsoffset for timing, -c copy for zero re-encode.
-	cmd := exec.Command(
-		"ffmpeg",
-		"-y",
-		"-itsoffset", "0.250",
-		"-i", videoPath,
-		"-i", subtitlePath,
-		"-map", "0:v", // video stream
-		"-map", "0:a", // audio stream
-		"-map", "1:s", // subtitle stream (from .srt)
-		"-c", "copy", // copy video/audio streams unchanged
-		"-c:s", "mov_text", // subtitle codec (tx3g in MP4)
-		"-metadata:s:s:0", "language="+language,
-		tmpPath,
-	)
-
-	if err := cmd.Run(); err != nil {
-		os.Remove(tmpPath)
-		return "", fmt.Errorf("ffmpeg subtitle embedding failed: %w", err)
-	}
-
-	// Atomic rename: replace original with temp on success.
-	if err := os.Rename(tmpPath, videoPath); err != nil {
-		os.Remove(tmpPath)
-		return "", fmt.Errorf("failed to replace original file: %w", err)
-	}
-
-	return videoPath, nil
 }

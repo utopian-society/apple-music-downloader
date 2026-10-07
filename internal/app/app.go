@@ -34,13 +34,19 @@ type State struct {
 }
 
 type Runner struct {
-	Config config.ConfigSet
-	Flags  Flags
-	State  State
+	Config  config.ConfigSet
+	Flags   Flags
+	State   State
+	TempMgr *TempManager
 }
 
 func NewRunner(cfg config.ConfigSet) *Runner {
-	return &Runner{Config: cfg, State: State{OKDict: make(map[string][]int)}}
+	tm, _ := NewTempManager(cfg.General.TempDir, cfg.General.KeepTempFiles)
+	return &Runner{
+		Config:  cfg,
+		State:   State{OKDict: make(map[string][]int)},
+		TempMgr: tm,
+	}
 }
 
 type AddedTrack struct {

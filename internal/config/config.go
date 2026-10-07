@@ -57,8 +57,15 @@ var flagKeyMap = map[string]string{
 	"aac-type":              "media.aac-type",
 	"mv-audio-type":         "media.mv.audio-type",
 	"mv-max":                "media.mv.max",
-	"mv-embed-subtitles":    "media.mv.embed-subtitles",
-	"mv-save-subtitle-file": "media.mv.save-subtitle-file",
+	"mv-sub-embed":          "media.mv.embed-mv-subtitles",
+	"mv-sub-extract":        "media.mv.extract-mv-subtitles",
+	"embed-mv-subtitles":    "media.mv.embed-mv-subtitles",
+	"extract-mv-subtitles":  "media.mv.extract-mv-subtitles",
+	"mv-embed-subtitles":    "media.mv.embed-mv-subtitles",
+	"mv-save-subtitle-file": "media.mv.extract-mv-subtitles",
+	"keep-temp":             "general.keep-temp-files",
+	"keep-temp-files":       "general.keep-temp-files",
+	"temp-dir":              "general.temp-dir",
 	"lite-server":           "general.lite-server",
 }
 
@@ -174,7 +181,6 @@ func Load(opts LoadOptions) (*Config, error) {
 		fmt.Printf("Warning: %s not found, using defaults\n", configFile)
 	}
 
-
 	// Layer 4: Command line flags (mapped to nested keys)
 	if opts.FlagSet != nil {
 		provider := posflag.ProviderWithFlag(opts.FlagSet, ".", k, func(f *pflag.Flag) (string, any) {
@@ -258,6 +264,38 @@ func Load(opts LoadOptions) (*Config, error) {
 	}
 	if !hasUserOrExample("metadata.tags.use-songinfo-for-playlist") && hasUserOrExample("metadata.format.use-songinfo-for-playlist") {
 		cfg.Metadata.Tags.UseSongInfoForPlaylist = getUserOrExampleBool("metadata.format.use-songinfo-for-playlist")
+	}
+
+	if !hasUserOrExample("general.temp-dir") && hasUserOrExample("temp-dir") {
+		cfg.General.TempDir = getUserOrExampleString("temp-dir")
+	}
+	if !hasUserOrExample("general.keep-temp-files") && hasUserOrExample("keep-temp-files") {
+		cfg.General.KeepTempFiles = getUserOrExampleBool("keep-temp-files")
+	}
+	if !hasUserOrExample("media.mv.embed-mv-subtitles") {
+		if hasUserOrExample("embed-mv-subtitles") {
+			cfg.Media.MV.EmbedSubtitles = getUserOrExampleBool("embed-mv-subtitles")
+		} else if hasUserOrExample("media.mv.embed-subtitles") {
+			cfg.Media.MV.EmbedSubtitles = getUserOrExampleBool("media.mv.embed-subtitles")
+		} else if hasUserOrExample("mv-embed-subtitles") {
+			cfg.Media.MV.EmbedSubtitles = getUserOrExampleBool("mv-embed-subtitles")
+		}
+	}
+	if !hasUserOrExample("media.mv.extract-mv-subtitles") {
+		if hasUserOrExample("extract-mv-subtitles") {
+			cfg.Media.MV.ExtractSubtitles = getUserOrExampleBool("extract-mv-subtitles")
+		} else if hasUserOrExample("media.mv.extract-subtitles") {
+			cfg.Media.MV.ExtractSubtitles = getUserOrExampleBool("media.mv.extract-subtitles")
+		} else if hasUserOrExample("mv-save-subtitle-file") {
+			cfg.Media.MV.ExtractSubtitles = getUserOrExampleBool("mv-save-subtitle-file")
+		}
+	}
+	if !hasUserOrExample("media.mv.mv-subtitle-languages") {
+		if hasUserOrExample("mv-subtitle-languages") && userK != nil {
+			cfg.Media.MV.SubtitleLanguages = userK.Strings("mv-subtitle-languages")
+		} else if hasUserOrExample("media.mv.subtitle-languages") && userK != nil {
+			cfg.Media.MV.SubtitleLanguages = userK.Strings("media.mv.subtitle-languages")
+		}
 	}
 
 	if err := cfg.Validate(); err != nil {

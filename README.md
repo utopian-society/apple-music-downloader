@@ -27,7 +27,9 @@ This command-line tool downloads albums, songs, playlists, stations and music vi
 3. Artist album downloads.
 4. Streaming download and decryption for large files.
 5. Music-video downloads using in-process mp4ff decryption.
-6. Interactive search and track selection.
+6. Music-video subtitle embedding (`mov_text`) and sidecar subtitle extraction (`.vtt` / `.srt`).
+7. Managed temporary file handling with automatic stale cleanup and `--keep-temp` support.
+8. Interactive search and track selection.
 
 ## Supported formats
 
@@ -48,7 +50,7 @@ Stations require a valid `media-user-token` from an active subscription.
 Install and prepare these before running the downloader:
 
 1. **wrapper-lite**: [github.com/WorldObservationLog/wrapper/tree/lite](https://github.com/WorldObservationLog/wrapper/tree/lite). Required backend decryption service. Start it before using this downloader and set its HTTP endpoint in `lite-server`, for example `http://127.0.0.1:12340`.
-2. **ffmpeg** (Optional): Required only for post-download conversion, animated artwork, or `ffmpeg`-dependent features. See [ffmpeg.org](https://ffmpeg.org/).
+2. **ffmpeg** (Optional): Required for post-download audio conversion, animated artwork, and **music video subtitle embedding / closed caption extraction**. See [ffmpeg.org](https://ffmpeg.org/).
 
 > **Note**: If you are using the precompiled release binaries, **Go is NOT required**. Go (1.23.1+) is only needed if you build from source (see [For Developers](#for-developers)).
 
@@ -319,7 +321,26 @@ Enter track numbers separated by spaces.
 --aac-type <aac|aac-lc|aac-binaural|aac-downmix>
 --mv-max <resolution>
 --mv-audio-type <atmos|ac3|aac>
+--mv-sub-embed
+--mv-sub-extract
+--keep-temp
 --lite-server <wrapper-lite-url>
+```
+
+### Music Video Subtitle & Temp File Options
+
+Configure subtitle and temporary file management in `config.yaml`:
+
+```yaml
+general:
+  temp-dir: ""                            # Custom temp directory (default: system temp / apple-music-downloader-<random>)
+  keep-temp-files: false                  # Keep temporary files after processing instead of deleting
+
+media:
+  mv:
+    embed-mv-subtitles: false             # Embed subtitle tracks into MV MP4 (requires ffmpeg)
+    extract-mv-subtitles: false           # Save MV subtitle sidecar files (.vtt and .srt)
+    mv-subtitle-languages: []             # List of subtitle languages to embed/extract (empty = all, e.g. ["en", "ja"])
 ```
 
 ## Get media-user-token

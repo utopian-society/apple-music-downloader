@@ -13,6 +13,8 @@ func Default() Config {
 			LiteServer:         "http://127.0.0.1:12340",
 			MaxMemoryLimit:     256,
 			ExitOnError:        false,
+			TempDir:            "",
+			KeepTempFiles:      false,
 		},
 		Media: MediaConfig{
 			GetM3u8Mode: "hires",
@@ -21,8 +23,11 @@ func Default() Config {
 			AacType:     "aac-lc",
 			ALACFix:     true,
 			MV: MVConfig{
-				AudioType: "atmos",
-				Max:       2160,
+				AudioType:         "atmos",
+				Max:               2160,
+				EmbedSubtitles:    false,
+				ExtractSubtitles:  false,
+				SubtitleLanguages: []string{},
 			},
 		},
 		Paths: PathsConfig{

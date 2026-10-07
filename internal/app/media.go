@@ -336,8 +336,8 @@ func (r *Runner) extractMvAudio(c string) (string, error) {
 }
 
 // extractMvSubtitles scans the MV master playlist and returns a slice of
-// (language, absolute URL) pairs for every TYPE=SUBTITLES alternative.
-func (r *Runner) extractMvSubtitles(masterURL string) ([]struct{ Lang, URL string }, error) {
+// SubtitleRendition structs for every TYPE=SUBTITLES alternative.
+func (r *Runner) extractMvSubtitles(masterURL string) ([]SubtitleRendition, error) {
 	baseURL, err := url.Parse(masterURL)
 	if err != nil {
 		return nil, err
@@ -364,7 +364,7 @@ func (r *Runner) extractMvSubtitles(masterURL string) ([]struct{ Lang, URL strin
 	}
 
 	master := from.(*m3u8.MasterPlaylist)
-	var results []struct{ Lang, URL string }
+	var results []SubtitleRendition
 	seen := map[string]bool{}
 
 	for _, variant := range master.Variants {
@@ -373,21 +373,93 @@ func (r *Runner) extractMvSubtitles(masterURL string) ([]struct{ Lang, URL strin
 				continue
 			}
 			lang := alt.Language
+			name := alt.Name
 			if lang == "" {
-				lang = alt.Name
+				lang = name
 			}
-			if seen[lang] {
+			if name == "" {
+				name = lang
+			}
+			key := lang + ":" + name
+			if seen[key] {
 				continue
 			}
-			seen[lang] = true
+			seen[key] = true
 			absURL, err := baseURL.Parse(alt.URI)
 			if err != nil {
 				continue
 			}
-			results = append(results, struct{ Lang, URL string }{lang, absURL.String()})
+			results = append(results, SubtitleRendition{
+				Language: lang,
+				Name:     name,
+				URL:      absURL.String(),
+			})
 		}
 	}
 	return results, nil
+}
+
+// downloadWebVTT fetches a WebVTT media-playlist URL, concatenates all
+// cue segments into a single WebVTT file, and writes it to destPath.
+func downloadWebVTT(playlistURL, destPath string) error {
+	baseURL, err := url.Parse(playlistURL)
+	if err != nil {
+		return err
+	}
+
+	resp, err := download.Get(playlistURL)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	text := string(body)
+
+	if strings.HasPrefix(strings.TrimSpace(text), "WEBVTT") {
+		return os.WriteFile(destPath, []byte(text), 0644)
+	}
+
+	from, listType, err := m3u8.DecodeFrom(strings.NewReader(text), true)
+	if err != nil || listType != m3u8.MEDIA {
+		return os.WriteFile(destPath, []byte(text), 0644)
+	}
+
+	media := from.(*m3u8.MediaPlaylist)
+	var combined strings.Builder
+	combined.WriteString("WEBVTT\n\n")
+	for _, seg := range media.Segments {
+		if seg == nil {
+			continue
+		}
+		segURL, err := baseURL.Parse(seg.URI)
+		if err != nil {
+			continue
+		}
+		sr, err := download.Get(segURL.String())
+		if err != nil {
+			continue
+		}
+		segBody, err := io.ReadAll(sr.Body)
+		sr.Body.Close()
+		if err != nil {
+			continue
+		}
+		s := string(segBody)
+		lines := strings.Split(s, "\n")
+		for _, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "WEBVTT") || strings.HasPrefix(trimmed, "X-TIMESTAMP-MAP") {
+				continue
+			}
+			combined.WriteString(line)
+			combined.WriteString("\n")
+		}
+	}
+	return os.WriteFile(destPath, []byte(combined.String()), 0644)
 }
 
 // downloadWebVTTtoSRT fetches a WebVTT media-playlist URL, concatenates all
