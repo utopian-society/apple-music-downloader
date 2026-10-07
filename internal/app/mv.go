@@ -113,6 +113,23 @@ func (r *Runner) mvDownloader(adamID string, saveDir string, token string, store
 	if err := widevinerip.DownloadAndDecryptStream(ctx, videoStream, vidPath); err != nil {
 		return fmt.Errorf("write video stream: %w", err)
 	}
+
+	audiom3u8url, err := r.extractMvAudio(mvm3u8url)
+	if err != nil {
+		return fmt.Errorf("extract audio manifest: %w", err)
+	}
+	var audioStream widevinerip.EncryptedStream
+	if usePlayReady {
+		audioStream, err = playreadyrip.FetchStream(ctx, adamID, audiom3u8url, r.Config.General.LiteServer)
+	} else {
+		audioStream, err = runv5.FetchStream(ctx, adamID, audiom3u8url, r.Config.General.LiteServer)
+	}
+	if err != nil {
+		return fmt.Errorf("download audio stream: %w", err)
+	}
+	if err := widevinerip.DownloadAndDecryptStream(ctx, audioStream, audPath); err != nil {
+		return fmt.Errorf("write audio stream: %w", err)
+	}
 	var covPath string
 	if r.Config.Metadata.Artwork.Embed {
 		thumbURL := MVInfo.Data[0].Attributes.Artwork.URL
