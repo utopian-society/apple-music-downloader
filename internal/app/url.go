@@ -137,22 +137,26 @@ func (r *Runner) checkArtist(artistUrl string, token string, relationship string
 		return dateI.Before(dateJ) // 返回 true 表示 i 在 j 前面
 	})
 
-	table := tablewriter.NewWriter(os.Stdout)
+	table := tablewriter.NewTable(os.Stdout)
 	if relationship == "albums" {
-		table.SetHeader([]string{"", "Album Name", "Date", "Album ID"})
+		table.Header("", "Album Name", "Date", "Album ID")
 	} else if relationship == "music-videos" {
-		table.SetHeader([]string{"", "MV Name", "Date", "MV ID"})
+		table.Header("", "MV Name", "Date", "MV ID")
 	}
-	table.SetRowLine(false)
+// table.SetRowLine(false)
+/*
 	table.SetHeaderColor(tablewriter.Colors{},
 		tablewriter.Colors{tablewriter.FgRedColor, tablewriter.Bold},
 		tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlackColor},
 		tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlackColor})
+*/
 
+/*
 	table.SetColumnColor(tablewriter.Colors{tablewriter.FgCyanColor},
 		tablewriter.Colors{tablewriter.Bold, tablewriter.FgRedColor},
 		tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlackColor},
 		tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlackColor})
+*/
 	for i, v := range options {
 		urls = append(urls, v[3])
 		options[i] = append([]string{fmt.Sprint(i + 1)}, v[:3]...)

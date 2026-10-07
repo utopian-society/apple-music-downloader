@@ -10,6 +10,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 	"amdl/internal/amp-api"
 )
 
@@ -113,18 +114,22 @@ func (a *Station) ShowSelect() []int {
 		})
 	}
 
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"", "Track Name", "Rating", "Type"})
-	table.SetRowLine(false)
-	table.SetCaption(true, fmt.Sprintf("Station: %d tracks", trackTotal))
+	table := tablewriter.NewTable(os.Stdout)
+	table.Header("", "Track Name", "Rating", "Type")
+// table.SetRowLine(false)
+	table.Caption(tw.Caption{Text: fmt.Sprintf("Station: %d tracks", trackTotal)})
+/*
 	table.SetHeaderColor(tablewriter.Colors{},
 		tablewriter.Colors{tablewriter.FgRedColor, tablewriter.Bold},
 		tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlackColor},
 		tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlackColor})
+*/
+/*
 	table.SetColumnColor(tablewriter.Colors{tablewriter.FgCyanColor},
 		tablewriter.Colors{tablewriter.Bold, tablewriter.FgRedColor},
 		tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlackColor},
 		tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlackColor})
+*/
 	for _, row := range data {
 		if row[2] == "explicit" {
 			row[2] = "E"
@@ -138,7 +143,11 @@ func (a *Station) ShowSelect() []int {
 		} else if row[3] == "songs" {
 			row[3] = "SONG"
 		}
-		table.Append(row)
+		var anyRow []any
+		for _, s := range row {
+			anyRow = append(anyRow, s)
+		}
+		table.Append(anyRow...)
 	}
 	table.Render()
 

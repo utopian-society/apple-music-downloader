@@ -700,11 +700,11 @@ func (r *Runner) extractMedia(b string, more_mode bool) (string, string, error) 
 		for _, variant := range master.Variants {
 			data = append(data, []string{variant.Codecs, variant.Audio, fmt.Sprint(variant.Bandwidth)})
 		}
-		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"Codec", "Audio", "Bandwidth"})
-		table.SetAutoMergeCells(true)
-		table.SetRowLine(true)
-		table.AppendBulk(data)
+		table := tablewriter.NewTable(os.Stdout)
+		table.Header("Codec", "Audio", "Bandwidth")
+// table.SetAutoMergeCells(true)
+// table.SetRowLine(true)
+		for _, row := range data { var anyRow []any; for _, s := range row { anyRow = append(anyRow, s) }; table.Append(anyRow...) }
 		table.Render()
 
 		var hasAAC, hasLossless, hasHiRes, hasAtmos, hasDolbyAudio bool
