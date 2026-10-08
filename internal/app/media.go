@@ -6,9 +6,6 @@ import (
 	"amdl/internal/wrapper"
 	"errors"
 	"fmt"
-	"github.com/grafov/m3u8"
-	"github.com/itouakirai/go-mp4tag"
-	"github.com/olekukonko/tablewriter"
 	"io"
 	"net/http"
 	"net/url"
@@ -18,6 +15,10 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/grafov/m3u8"
+	"github.com/itouakirai/go-mp4tag"
+	"github.com/olekukonko/tablewriter"
 )
 
 func (r *Runner) writeCover(sanAlbumFolder, name string, url string) (string, error) {
@@ -74,6 +75,10 @@ func (r *Runner) writeCover(sanAlbumFolder, name string, url string) (string, er
 	if err := tmpFile.Close(); err != nil {
 		return "", err
 	}
+	if err := os.Chmod(tmpPath, 0644); err != nil {
+		return "", fmt.Errorf("chmod artwork: %w", err)
+	}
+
 	if err := os.Rename(tmpPath, covPath); err != nil {
 		return "", err
 	}
@@ -702,9 +707,15 @@ func (r *Runner) extractMedia(b string, more_mode bool) (string, string, error) 
 		}
 		table := tablewriter.NewTable(os.Stdout)
 		table.Header("Codec", "Audio", "Bandwidth")
-// table.SetAutoMergeCells(true)
-// table.SetRowLine(true)
-		for _, row := range data { var anyRow []any; for _, s := range row { anyRow = append(anyRow, s) }; table.Append(anyRow...) }
+		// table.SetAutoMergeCells(true)
+		// table.SetRowLine(true)
+		for _, row := range data {
+			var anyRow []any
+			for _, s := range row {
+				anyRow = append(anyRow, s)
+			}
+			table.Append(anyRow...)
+		}
 		table.Render()
 
 		var hasAAC, hasLossless, hasHiRes, hasAtmos, hasDolbyAudio bool
