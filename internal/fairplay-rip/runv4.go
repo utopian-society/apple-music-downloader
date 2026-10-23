@@ -284,6 +284,7 @@ func downloadAndDecryptFile(liteServer string, in io.Reader, outfile string,
 		defer close(jobs)
 		seq := 0
 		var tmpl *temari.Template
+		templateCache := make(map[string]*temari.Template)
 
 		for i := 0; ; i++ {
 			if ctx.Err() != nil {
@@ -301,20 +302,28 @@ func downloadAndDecryptFile(liteServer string, in io.Reader, outfile string,
 				break
 			}
 
+			if i >= len(playlistSegments) {
+				return errors.New("segment number out of sync")
+			}
 			segment := playlistSegments[i]
 			if segment == nil {
 				return errors.New("segment number out of sync")
 			}
 
 			key := segment.Key
-			if key != nil && (i < 2) {
-				if key.URI == wrapper.PrefetchKey {
-					tmpl, err = fetchTemplate(liteServer, "0", key.URI)
+			if key != nil {
+				if cached, ok := templateCache[key.URI]; ok {
+					tmpl = cached
 				} else {
-					tmpl, err = fetchTemplate(liteServer, adamId, key.URI)
-				}
-				if err != nil {
-					return err
+					if key.URI == wrapper.PrefetchKey {
+						tmpl, err = fetchTemplate(liteServer, "0", key.URI)
+					} else {
+						tmpl, err = fetchTemplate(liteServer, adamId, key.URI)
+					}
+					if err != nil {
+						return err
+					}
+					templateCache[key.URI] = tmpl
 				}
 			}
 
