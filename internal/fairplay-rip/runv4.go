@@ -311,7 +311,7 @@ func downloadAndDecryptFile(liteServer string, in io.Reader, outfile string,
 			}
 
 			key := segment.Key
-			if key != nil {
+			if key != nil && key.URI != "" {
 				if cached, ok := templateCache[key.URI]; ok {
 					tmpl = cached
 				} else {
