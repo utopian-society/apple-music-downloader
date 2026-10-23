@@ -2,10 +2,12 @@ package mv
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/Eyevinn/mp4ff/mp4"
 	"github.com/itouakirai/go-mp4tag"
@@ -21,7 +23,7 @@ func concatenateFiles(t *testing.T, parts ...string) string {
 		}
 		data = append(data, chunk...)
 	}
-	path := filepath.Join(t.TempDir(), "stream.mp4")
+	path := filepath.Join(t.TempDir(), fmt.Sprintf("stream_%d.mp4", time.Now().UnixNano()))
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -30,6 +32,10 @@ func concatenateFiles(t *testing.T, parts ...string) string {
 
 func buildTestMV(t *testing.T) string {
 	t.Helper()
+	tmpDir := t.TempDir()
+	t.Setenv("TMPDIR", tmpDir)
+	t.Setenv("TMP", tmpDir)
+	t.Setenv("TEMP", tmpDir)
 	videoPath := concatenateFiles(t,
 		filepath.Join("testdata", "V300", "init.mp4"),
 		filepath.Join("testdata", "V300", "1.m4s"),
@@ -38,7 +44,7 @@ func buildTestMV(t *testing.T) string {
 		filepath.Join("testdata", "A48", "init.mp4"),
 		filepath.Join("testdata", "A48", "1.m4s"),
 	)
-	outputPath := filepath.Join(t.TempDir(), "mv.mp4")
+	outputPath := filepath.Join(t.TempDir(), fmt.Sprintf("mv_%d.mp4", time.Now().UnixNano()))
 	if err := Mux(videoPath, audioPath, outputPath); err != nil {
 		t.Fatal(err)
 	}

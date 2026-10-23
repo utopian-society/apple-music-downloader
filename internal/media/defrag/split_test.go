@@ -2,10 +2,12 @@ package fmp4unfrag_test
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	defrag "amdl/internal/media/defrag"
 	mvmedia "amdl/internal/media/mv"
@@ -23,7 +25,7 @@ func concat(t *testing.T, parts ...string) string {
 		}
 		data = append(data, chunk...)
 	}
-	path := filepath.Join(t.TempDir(), "stream.mp4")
+	path := filepath.Join(t.TempDir(), fmt.Sprintf("stream_%d.mp4", time.Now().UnixNano()))
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -32,10 +34,14 @@ func concat(t *testing.T, parts ...string) string {
 
 func muxTestMV(t *testing.T) string {
 	t.Helper()
+	tmpDir := t.TempDir()
+	t.Setenv("TMPDIR", tmpDir)
+	t.Setenv("TMP", tmpDir)
+	t.Setenv("TEMP", tmpDir)
 	testdata := filepath.Join("..", "mv", "testdata")
 	video := concat(t, filepath.Join(testdata, "V300", "init.mp4"), filepath.Join(testdata, "V300", "1.m4s"))
 	audio := concat(t, filepath.Join(testdata, "A48", "init.mp4"), filepath.Join(testdata, "A48", "1.m4s"))
-	out := filepath.Join(t.TempDir(), "mv.mp4")
+	out := filepath.Join(t.TempDir(), fmt.Sprintf("defrag_%d.mp4", time.Now().UnixNano()))
 	if err := mvmedia.Mux(video, audio, out); err != nil {
 		t.Fatal(err)
 	}
