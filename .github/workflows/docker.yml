@@ -83,6 +83,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
+            GO_VERSION=1.26
             VERSION=${{ env.TAG }}
             COMMIT=${{ steps.info.outputs.commit }}
             BUILD_DATE=${{ steps.info.outputs.date }}

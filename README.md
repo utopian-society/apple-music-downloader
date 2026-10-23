@@ -52,7 +52,7 @@ Install and prepare these before running the downloader:
 1. **wrapper-lite**: [github.com/WorldObservationLog/wrapper/tree/lite](https://github.com/WorldObservationLog/wrapper/tree/lite). Required backend decryption service. Start it before using this downloader and set its HTTP endpoint in `lite-server`, for example `http://127.0.0.1:12340`.
 2. **ffmpeg** (Optional): Required for post-download audio conversion, animated artwork, and **music video subtitle embedding / closed caption extraction**. See [ffmpeg.org](https://ffmpeg.org/).
 
-> **Note**: If you are using the precompiled release binaries, **Go is NOT required**. Go (1.23.1+) is only needed if you build from source (see [For Developers](#for-developers)).
+> **Note**: If you are using the precompiled release binaries, **Go is NOT required**. Go (1.26.0+) is only needed if you build from source (see [For Developers](#for-developers)).
 
 ## Quick Start
 
@@ -416,7 +416,7 @@ If you want to contribute, modify the code, or build the downloader from source:
 
 ### Prerequisites
 
-1. **Go 1.23.1 or newer**: [go.dev/dl](https://go.dev/dl/).
+1. **Go 1.26.0 or newer**: [go.dev/dl](https://go.dev/dl/).
 2. **Git**: [git-scm.com](https://git-scm.com/).
 3. **ffmpeg**: [ffmpeg.org](https://ffmpeg.org/) (optional for audio conversion or animated artwork).
 

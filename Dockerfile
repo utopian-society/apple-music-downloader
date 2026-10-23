@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-ARG GO_VERSION=1.23
+ARG GO_VERSION=1.26
 
 # Cross-compile on the build host; the binary is pure Go, so no emulation is needed here.
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS builder
@@ -8,9 +8,10 @@ ARG TARGETARCH
 ARG VERSION=dev
 ARG COMMIT=none
 ARG BUILD_DATE=unknown
-ARG REPO_OWNER=zhaarey
+ARG REPO_OWNER=utopian-society
 ARG REPO_NAME=apple-music-downloader
 WORKDIR /src
+RUN apk add --no-cache git ca-certificates
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=bind,source=go.mod,target=go.mod \
     --mount=type=bind,source=go.sum,target=go.sum \

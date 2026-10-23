@@ -52,7 +52,7 @@
 1. **wrapper-lite**：[github.com/WorldObservationLog/wrapper/tree/lite](https://github.com/WorldObservationLog/wrapper/tree/lite)。必需的后端解密服务。必须先启动它，并在 `lite-server` 中写入其 HTTP 地址，例如 `http://127.0.0.1:12340`。
 2. **ffmpeg**（可选）：在后下载转换、动态封面、以及**音乐视频字幕嵌入与提取**时需要。见 [ffmpeg.org](https://ffmpeg.org/)。
 
-> **提示**：直接使用 Release 预编译二进制文件**不需要安装 Go**。只有自行从源码编译时才需要 Go 1.23.1+（见 [开发者指南](#开发者指南)）。
+> **提示**：直接使用 Release 预编译二进制文件**不需要安装 Go**。只有自行从源码编译时才需要 Go 1.26.0+（见 [开发者指南](#开发者指南)）。
 
 ## 快速开始
 
@@ -409,7 +409,7 @@ Windows PowerShell：
 
 ### 环境要求
 
-1. **Go 1.23.1 或更新版本**：[go.dev/dl](https://go.dev/dl/)。
+1. **Go 1.26.0 或更新版本**：[go.dev/dl](https://go.dev/dl/)。
 2. **Git**：[git-scm.com](https://git-scm.com/)。
 3. **ffmpeg**：[ffmpeg.org](https://ffmpeg.org/)（可选，用于后处理转换或动态封面）。
 
