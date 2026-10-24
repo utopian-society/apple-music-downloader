@@ -32,8 +32,9 @@ FROM alpine:3.22
 # ffmpeg is used for animated artwork and post-download conversion.
 RUN apk add --no-cache ca-certificates ffmpeg tzdata
 COPY --from=builder /out/amdl /usr/local/bin/amdl
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 # config.yaml is created here from the embedded template on first run, and the
 # relative save folders (AM-Lossless, AM-Atmos, ...) resolve here as well.
 WORKDIR /data
 VOLUME ["/data"]
-ENTRYPOINT ["/usr/local/bin/amdl"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
